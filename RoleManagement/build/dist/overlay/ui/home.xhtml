@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:c="http://java.sun.com/jstl/core"
+	xmlns:f="http://java.sun.com/jsf/core" xmlns:ng="http://angularjs.org">
+
+<div class="toolbar" ng-init="loadData()">
+	<div class="search-container">
+		<i class="fas fa-filter"></i> <input type="text"
+			placeholder="Search roles..." ng-model="searchText" />
+	</div>
+	<div class="view-modes">
+		<button ng-click="toggleSearchBy()">Search by Columns</button>
+		<button class="column-selector">Select Columns</button>
+	</div>
+</div>
+
+<div class="search-by-columns" ng-show="showSearchBy">
+	<label><input type="radio" ng-model="searchColumn" value="name" />
+		Role Name</label> <label><input type="radio" ng-model="searchColumn"
+		value="type" /> Type</label> <label><input type="radio"
+		ng-model="searchColumn" value="description" /> Description</label> <label><input
+		type="radio" ng-model="searchColumn" value="owner" /> Role Owner</label>
+</div>
+
+<div class="action-bar" ng-show="selectedRoles.length > 0">
+	<span>{{selectedRoles.length}} selected</span>
+</div>
+
+<div class="table-wrapper-fixed">
+	<table class="role-table" ng-if="roles.length > 0">
+		<thead>
+			<tr>
+				<th><input type="checkbox" ng-click="toggleAll()" /></th>
+				<th>Role Name</th>
+				<th>Display Name</th>
+				<th>Type</th>
+				<th>Description</th>
+				<th>Role Owner</th>
+				<th class="sticky-action-column">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr
+				ng-repeat="role in (roles | filter:{[searchColumn]: searchText}).slice(startIndex, endIndex)">
+				<td><input type="checkbox" ng-model="role.selected"
+					ng-change="updateSelection(role)" /></td>
+				<td>{{role.name}}</td>
+				<td>{{role.displayName}}</td>
+				<td>{{role.type}}</td>
+				<td>{{role.description}}</td>
+				<td>{{role.owner}}</td>
+				<td><i class="fas fa-pen edit-icon" ng-click="editRole(role)"></i>
+					<i class="fas fa-eye view-icon" ng-click="viewRole(role)"></i></td>
+			</tr>
+		</tbody>
+	</table>
+
+	<div ng-if="roles.length == 0" class="no-roles">
+		<i class="fas fa-inbox"></i>
+		<p>You don't own any roles</p>
+	</div>
+</div>
+
+<div class="pagination-bar">
+	<span>Rows per page:</span> <select ng-model="pageSize"
+		ng-change="changePageSize()">
+		<option value="10">10</option>
+		<option value="25">25</option>
+		<option value="50">50</option>
+	</select> <span>{{startIndex + 1}} - {{endIndex}} of {{totalCount}}</span>
+	<button ng-click="goToFirstPage()">&#171;</button>
+	<button ng-click="goToPreviousPage()">&#8249;</button>
+	<input type="number" ng-model="currentPage" ng-change="goToPage()" />
+	<button ng-click="goToNextPage()">&#8250;</button>
+	<button ng-click="goToLastPage()">&#187;</button>
+</div>
+
+<ui:include src="roleDetailsModal.xhtml"/>
+<ui:include src="roleEditModal.xhtml"/>
+
+
+</html>

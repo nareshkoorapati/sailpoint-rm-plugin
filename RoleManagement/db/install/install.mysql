@@ -1,0 +1,49 @@
+
+--
+-- MySQL DDL plugin script
+--
+
+SELECT 1 FROM DUAL;
+
+-- Table to store high-level role change request
+CREATE TABLE role_change_request (
+    id VARCHAR(64) PRIMARY KEY,
+    role_id VARCHAR(64),
+    requester_id VARCHAR(64),
+    request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20), -- PENDING, APPROVED, REJECTED, IN_PROGRESS
+    current_step INT,
+    notes TEXT
+);
+
+-- Table to store each step of the approval workflow
+CREATE TABLE role_change_approval (
+    id VARCHAR(64) PRIMARY KEY,
+    request_id VARCHAR(64),
+    step_number INT,
+    approver_id VARCHAR(64),
+    status VARCHAR(20), -- PENDING, APPROVED, REJECTED
+    decision_date TIMESTAMP,
+    comments TEXT,
+    FOREIGN KEY (request_id) REFERENCES role_change_request(id)
+);
+
+-- Table to store metadata snapshot before and after change
+CREATE TABLE role_snapshot (
+    id VARCHAR(64) PRIMARY KEY,
+    request_id VARCHAR(64),
+    snapshot_type VARCHAR(10), -- OLD or NEW
+    data CLOB, -- Store JSON or serialized structure
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (request_id) REFERENCES role_change_request(id)
+);
+
+-- Optional: Detailed breakdown of what changed
+CREATE TABLE role_change_details (
+    id VARCHAR(64) PRIMARY KEY,
+    request_id VARCHAR(64),
+    field_name VARCHAR(100),
+    old_value VARCHAR(1024),
+    new_value VARCHAR(1024),
+    FOREIGN KEY (request_id) REFERENCES role_change_request(id)
+);

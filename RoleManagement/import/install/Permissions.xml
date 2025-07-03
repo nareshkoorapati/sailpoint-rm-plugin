@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <SPRight displayName="rolemanagementRight" name="rolemanagementRight"/>
+  <SPRight displayName="RoleManagementRight" name="RoleManagementRight"/>
+  <SPRight displayName="RoleManagementRight" name="RoleManagementRight"/>
+</sailpoint>
