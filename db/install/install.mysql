@@ -1,0 +1,41 @@
+create table if not exists rme_batch_request (
+       id varchar(32) not null,
+        created bigint,
+        modified bigint,
+        assigned_scope_path varchar(450),
+        file_name varchar(255),
+        header varchar(4000),
+        run_date bigint,
+        completed_date bigint,
+        record_count integer,
+        completed_count integer,
+        error_count integer,
+        invalid_count integer,
+        message varchar(4000),
+        error_message longtext,
+        file_contents longtext,
+        status varchar(255),
+        run_config longtext,
+        owner varchar(32),
+        assigned_scope varchar(32),
+        primary key (id)
+    ) engine=InnoDB;
+
+    create table if not exists rme_batch_request_item (
+       id varchar(32) not null,
+        created bigint,
+        modified bigint,
+        assigned_scope_path varchar(450),
+        request_data varchar(4000),
+        status varchar(255),
+        message varchar(4000),
+        error_message longtext,
+        result varchar(255),
+        role_id varchar(255),
+        role_name varchar(255),
+        batch_request_id varchar(32),
+        owner varchar(255),
+        owner_id varchar(32),
+        idx integer,
+        primary key (id)
+    ) engine=InnoDB;

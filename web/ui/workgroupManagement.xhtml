@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:ng="http://angularjs.org">
+
+<ui:composition>
+
+	<!-- One outer ng-controller only; parent page already has ng-app="RoleApp". Nested ng-app breaks controller lookup. -->
+	<div ng-controller="WorkgroupManagementController">
+	<div class="wg-page-header">
+		<h2 class="wg-page-title">Workgroup Management</h2>
+		<p class="wg-page-subtitle">Search workgroups and view their members.</p>
+	</div>
+
+	<div class="wg-dashboard-loading" ng-if="wgStatsLoading">
+		<i class="fas fa-spinner fa-spin"></i>
+		<span>Loading overview statistics…</span>
+	</div>
+
+	<div class="wg-dashboard-section" ng-if="!wgStatsLoading">
+		<h3 class="wg-dashboard-heading">Overview</h3>
+		<div class="card-container wg-dashboard-cards">
+			<div class="dashboard-card wg-stat-card">
+				<div class="card-title">
+					<span class="card-title">Total workgroups</span>
+					<i class="fas fa-users wg-stat-icon"></i>
+				</div>
+				<div class="card-count">{{ wgStats.totalWorkgroups | number }}</div>
+			</div>
+			<div class="dashboard-card wg-stat-card">
+				<div class="card-title">
+					<span class="card-title">Own ≥1 role (as owner)</span>
+					<i class="fas fa-user-shield wg-stat-icon"></i>
+				</div>
+				<div class="card-count">{{ wgStats.workgroupsOwningRoles | number }}</div>
+			</div>
+			<div class="dashboard-card wg-stat-card">
+				<div class="card-title">
+					<span class="card-title">Not a role owner</span>
+					<i class="fas fa-user-slash wg-stat-icon"></i>
+				</div>
+				<div class="card-count">{{ wgStats.workgroupsNotOwningRoles | number }}</div>
+			</div>
+			<div class="dashboard-card wg-stat-card">
+				<div class="card-title">
+					<span class="card-title">Active workgroups</span>
+					<i class="fas fa-circle-check wg-stat-icon"></i>
+				</div>
+				<div class="card-count">{{ wgStats.activeWorkgroups | number }}</div>
+			</div>
+			<div class="dashboard-card wg-stat-card">
+				<div class="card-title">
+					<span class="card-title">Disabled workgroups</span>
+					<i class="fas fa-ban wg-stat-icon"></i>
+				</div>
+				<div class="card-count">{{ wgStats.disabledWorkgroups | number }}</div>
+			</div>
+			<div class="dashboard-card wg-stat-card">
+				<div class="card-title">
+					<span class="card-title">Roles with WG owner</span>
+					<i class="fas fa-id-badge wg-stat-icon"></i>
+				</div>
+				<div class="card-count">{{ wgStats.rolesWithWorkgroupOwner | number }}</div>
+			</div>
+		</div>
+
+		<h3 class="wg-dashboard-heading wg-charts-heading">Distribution</h3>
+		<div class="wg-chart-panel">
+			<div class="wg-chart-cell">
+				<h4 class="wg-chart-title">Role ownership</h4>
+				<p class="wg-chart-hint">Share of workgroups that own at least one role</p>
+				<div class="wg-donut-wrap">
+					<div class="wg-donut" ng-style="wgOwnershipDonutStyle()"></div>
+					<div class="wg-donut-center">
+						<strong>{{ wgStats.workgroupsOwningRoles | number }}</strong>
+						<span>of {{ wgStats.totalWorkgroups | number }}</span>
+					</div>
+				</div>
+				<ul class="wg-chart-legend">
+					<li><span class="wg-leg-swatch wg-sw-own"></span> Owns ≥1 role ({{ wgStats.workgroupsOwningRoles | number }})</li>
+					<li><span class="wg-leg-swatch wg-sw-none"></span> Not an owner ({{ wgStats.workgroupsNotOwningRoles | number }})</li>
+				</ul>
+			</div>
+			<div class="wg-chart-cell">
+				<h4 class="wg-chart-title">Activation</h4>
+				<p class="wg-chart-hint">Active vs disabled workgroup identities</p>
+				<div class="wg-donut-wrap">
+					<div class="wg-donut" ng-style="wgStatusDonutStyle()"></div>
+					<div class="wg-donut-center">
+						<strong>{{ wgStats.activeWorkgroups | number }}</strong>
+						<span>active</span>
+					</div>
+				</div>
+				<ul class="wg-chart-legend">
+					<li><span class="wg-leg-swatch wg-sw-active"></span> Active ({{ wgStats.activeWorkgroups | number }})</li>
+					<li><span class="wg-leg-swatch wg-sw-disabled"></span> Disabled ({{ wgStats.disabledWorkgroups | number }})</li>
+				</ul>
+			</div>
+		</div>
+
+		<div class="wg-bar-chart-block">
+			<h4 class="wg-chart-title">Workgroups by role ownership</h4>
+			<div class="wg-bar-track" ng-if="(wgStats.totalWorkgroups || 0) > 0">
+				<div class="wg-bar-seg wg-bar-own" ng-style="wgOwnershipBarStyle()"></div>
+				<div class="wg-bar-seg wg-bar-notowner" ng-style="wgNotOwnerBarStyle()"></div>
+			</div>
+			<div class="wg-bar-empty" ng-if="(wgStats.totalWorkgroups || 0) === 0">No workgroups to display.</div>
+			<div class="wg-bar-labels" ng-if="(wgStats.totalWorkgroups || 0) > 0">
+				<span><i class="wg-dot wg-dot-own"></i> Owns roles: {{ wgStats.workgroupsOwningRoles | number }} ({{ wgOwnershipPercent() }}%)</span>
+				<span><i class="wg-dot wg-dot-notowner"></i> Does not own: {{ wgStats.workgroupsNotOwningRoles | number }} ({{ wgNotOwnerPercent() }}%)</span>
+			</div>
+		</div>
+	</div>
+
+	<div class="modern-search-bar">
+		<i class="fas fa-search search-icon"></i>
+		<input class="searchRoles" type="text"
+			placeholder="Filter by name or display name..."
+			ng-model="workgroupSearchText"
+			ng-model-options="{ debounce: 400 }"
+			ng-change="triggerWorkgroupSearch()" />
+		<i class="fas fa-times clear-icon"
+			ng-if="workgroupSearchText"
+			ng-click="workgroupSearchText = ''; triggerWorkgroupSearch()">
+		</i>
+	</div>
+
+	<div class="table-wrapper-fixed">
+		<table class="role-table" ng-if="workgroupRows.length > 0">
+			<thead>
+				<tr>
+					<th>Name</th>
+					<th>Display name</th>
+					<th>Email</th>
+					<th>Description</th>
+					<th>Members Count</th>
+					<th>Roles Count</th>
+					<th>Status</th>
+					<th class="sticky-action-column">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr ng-repeat="wg in workgroupRows">
+					<td>{{ wg.name }}</td>
+					<td>{{ wg.displayName }}</td>
+					<td>{{ wg.email }}</td>
+					<td>{{ wg.description }}</td>
+					<td>{{ wg.membersCount }}</td>
+					<td>{{ wg.rolesCount }}</td>
+					<td>
+						<span ng-class="wg.disabled ? 'wg-badge wg-badge-off' : 'wg-badge wg-badge-on'">
+							{{ wg.disabled ? 'Disabled' : 'Active' }}
+						</span>
+					</td>
+					<td class="sticky-action-column">
+						<span class="icon-circle" ng-click="openWorkgroupMembers(wg)" title="View members">
+							<i class="fas fa-users"></i>
+						</span>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div ng-if="workgroupRows.length === 0 &amp;&amp; !wgLoading" class="no-roles">
+			<i class="fas fa-users-slash"></i>
+			<p>No workgroups found.</p>
+		</div>
+	</div>
+
+	<div class="pagination-bar" ng-if="workgroupTotal > 0">
+		<span>Rows per page:</span>
+		<select ng-model="workgroupPageSize" ng-change="wgChangePageSize()">
+			<option ng-value="10">10</option>
+			<option ng-value="25">25</option>
+			<option ng-value="50">50</option>
+		</select>
+		<span>{{ workgroupStartDisplay() }} - {{ workgroupEndDisplay() }} of {{ workgroupTotal }}</span>
+		<button type="button" ng-click="wgGoToFirstPage()">&#171;</button>
+		<button type="button" ng-click="wgGoToPreviousPage()">&#8249;</button>
+		<button type="button" ng-click="wgGoToNextPage()">&#8250;</button>
+		<button type="button" ng-click="wgGoToLastPage()">&#187;</button>
+	</div>
+
+	<ui:include src="workgroupMembersModal.xhtml" />
+	</div>
+
+</ui:composition>
+</html>

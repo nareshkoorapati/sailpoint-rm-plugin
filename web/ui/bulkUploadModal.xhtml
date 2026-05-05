@@ -1,0 +1,107 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:sp="http://sailpoint.com/ui"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:c="http://java.sun.com/jstl/core"
+	xmlns:a4j="http://richfaces.org/a4j"
+	xmlns:t="http://myfaces.apache.org/tomahawk"
+	xmlns:h="http://java.sun.com/jsf/html">
+
+<head>
+<meta charset="utf-8" />
+<title>Bulk Upload - Role Management</title>
+</head>
+<body>
+	<ui:composition>
+		<div ng-app="RoleApp" ng-controller="RoleController">
+			
+		</div>
+		<button class="mat-button-filled" ng-click="openUpload()">Add New Batch Request</button>
+		<button class="mat-button-filled" ng-click="openUpload()">Add New Batch Request</button>
+		<!-- BULK UPLOAD MODAL -->
+		<div class="bulk-upload-section" ng-show="activeSection === 'upload'">
+			<h2>Bulk Upload Roles</h2>
+
+			<form name="bulkUploadForm" ng-submit="submitBulkUpload()">
+				<div class="form-group">
+					<label for="uploadFile">Upload File (CSV)</label> <input
+						type="file" id="uploadFile" file-model="uploadFile" accept=".csv"
+						required="true" class="modern-input" />
+				</div>
+
+				<!-- Instructions and template download link -->
+				<div class="help-text" style="margin-top: 8px; font-size: 0.95em; color: #555;">
+					<p style="margin: 0 0 6px 0;">
+						Prepare a CSV with header: <strong>RoleName,Description,Owner</strong>. One role per row.
+					</p>
+					<p style="margin: 0;">
+						<a href="data:text/csv;charset=utf-8,RoleName,Description,Owner%0A"
+							download="roles-bulk-template.csv">Download CSV template</a>
+					</p>
+				</div>
+
+				<div class="form-actions">
+					<button type="submit" class="mat-button-filled"
+						ng-disabled="bulkUploadForm.$invalid">Upload</button>
+				</div>
+			</form>
+		</div>
+		<div class="requests-section">
+			<h2>Batch Requests</h2>
+
+			<div class="toolbar" style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+				<input type="text" class="modern-input" style="flex:1"
+					placeholder="Filter by batch request file name"
+					ng-model="searchTerm" ng-change="page = 1" />
+				<button class="mat-button-filled" ng-click="openUpload()">Add New Batch Request</button>
+			</div>
+
+			<table class="data-table" style="width:100%;">
+				<thead>
+				<tr>
+					<th>Batch File Name</th>
+					<th>Requested Date</th>
+					<th>Run Date</th>
+					<th>Completed Date</th>
+					<th>Record Count</th>
+					<th>Status</th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr ng-repeat="r in (batchRequests | filter:{ fileName: searchTerm }) | orderBy:'-requestedDate' | limitTo: pageSize : (page-1)*pageSize">
+					<td>{{ r.fileName }}</td>
+					<td>{{ r.requestedDate | date:'M/d/yy h:mm a' }}</td>
+					<td>{{ r.runDate | date:'M/d/yy h:mm a' }}</td>
+					<td>{{ r.completedDate | date:'M/d/yy h:mm a' }}</td>
+					<td>{{ r.recordCount }}</td>
+					<td>{{ r.status }}</td>
+				</tr>
+				<tr ng-if="!batchRequests.length">
+					<td colspan="6" style="text-align:center; color:#777;">No batch requests found</td>
+				</tr>
+				</tbody>
+			</table>
+
+			<div class="pager" style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+				<button class="mat-button" ng-disabled="page === 1" ng-click="page = 1">«</button>
+				<button class="mat-button" ng-disabled="page === 1" ng-click="page = page - 1">‹</button>
+				<span>Page</span>
+				<input type="number" class="modern-input" style="width:56px" ng-model="page"
+					ng-change="page = clampPage(page, totalPages())" min="1" />
+				<span>of {{ totalPages() || 1 }}</span>
+				<button class="mat-button" ng-disabled="page >= totalPages()" ng-click="page = page + 1">›</button>
+				<button class="mat-button" ng-disabled="page >= totalPages()" ng-click="page = totalPages()">»</button>
+				<span style="margin-left:auto;">Show</span>
+				<select class="modern-input" ng-model="pageSize" ng-change="page = 1">
+				<option value="10">10</option>
+				<option value="25">25</option>
+				<option value="50">50</option>
+				</select>
+				<span>items</span>
+			</div>
+			</div>
+
+
+	</ui:composition>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:c="http://java.sun.com/jstl/core"
+      xmlns:f="http://java.sun.com/jsf/core"
+      xmlns:ng="http://angularjs.org">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Home - Role Management</title>
+</head>
+
+<body>
+  <ui:composition>
+  <link rel="stylesheet" type="text/css" href="#{plugins.requestContextPath}/plugin/rolemanagement/ui/css/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+   <div class="rmSubmenuContentBox"  ng-app="RoleApp" ng-controller="RoleController" ng-init="initPlugin()" ng-cloak="true">
+     <!--  side bar will be added later
+	<div class="sidebar collapsed" id="sidebar">
+	    <div class="sidebar-header collapsed">
+	      <i class="fa-solid fa-arrow-left" id="openCloseIcon" onclick="toggleSidebar()"></i>
+	    </div>
+	    <ul class="sidebar-menu">
+        <li class="active"><a href="javascript:void(0)" ng-click="setPage('home')"><i class="fas fa-home"></i><span>Home</span></a></li>
+        <li><a href="javascript:void(0)" ng-click="setPage('approvals')"><i class="fas fa-check-square"></i><span>Approvals</span></a></li>
+        <li class="has-submenu">
+          <a href="#" onclick="toggleSubmenu(this)">
+            <i class="fas fa-key"></i><span>Manage Access</span><i class="fas fa-chevron-down submenu-arrow"></i>
+          </a>
+          <ul class="submenu">
+            <li><a href="javascript:void(0)" ng-click="setPage('addAccess')">Add Access</a></li>
+            <li><a href="javascript:void(0)" ng-click="setPage('removeAccess')">Remove Access</a></li>
+            <li><a href="javascript:void(0)" ng-click="setPage('copyAccess')">Copy Access</a></li>
+          </ul>
+        </li>
+        <li><a href="javascript:void(0)" ng-click="setPage('accessReviews')"><i class="fas fa-tasks"></i><span>Access Reviews</span></a></li>
+      </ul>
+	  </div>
+	  -->
+	  <!-- 
+	<div class="home-banner">
+	  <div class="home-banner-header">
+	    <h2>Role Management Dashboard</h2>
+	    <p>Perform bulk operations, manage roles, and more.</p>
+	  </div>
+	
+	  <div class="home-banner-actions">
+	    <button class="banner-btn" ng-click="openCreateRoleModal()">
+	      <i class="fa fa-plus"></i> Create Role
+	    </button>
+	    <button class="banner-btn" ng-click="openBulkUploadModal()">
+	      <i class="fa fa-upload"></i> Bulk Upload
+	    </button>
+	    <button class="banner-btn" ng-click="setActiveSection('tasks')">
+	      <i class="fa fa-tasks"></i> View Tasks
+	    </button>
+	    <button class="banner-btn" ng-click="setActiveSection('reports')">
+	      <i class="fa fa-chart-bar"></i> Reports
+	    </button>
+	  </div>
+	</div>
+	 -->
+	
+	<!--  div class="section-tabs">
+	  <div ng-class="{'active-tab': activeSection === 'dashboard'}" ng-click="setSection('dashboard')">Dashboard</div>
+	  <div ng-class="{'active-tab': activeSection === 'tasks'}" ng-click="setSection('tasks')">Tasks</div>
+	  <div ng-class="{'active-tab': activeSection === 'reports'}" ng-click="setSection('reports')">Reports</div>
+	  <div ng-class="{'active-tab': activeSection === 'upload'}" ng-click="setSection('upload')">Bulk Upload</div>
+	  <div ng-class="{'active-tab': activeSection === 'create'}" ng-click="setSection('create')">Create Role</div>
+	</div>-->
+	
+	
+	<div class="page-loading-overlay" ng-show="isLoading">
+		<div class="page-loading-spinner"></div>
+	</div>
+    <main class="main-content">
+    	
+      <!--  <h2>Welcome to Role Management</h2> -->
+      	<div class="help-button-wrapper">
+		  <button class="help-button" ng-click="openHelpPage()">
+		    <i class="fas fa-question-circle"></i> Help
+		  </button>
+		</div>
+
+      	
+		<div class="toast-message"
+		     ng-show="toast.visible"
+		     ng-class="toast.type">
+		
+		  <i class="fa toast-icon"
+		     ng-class="{
+		       'fa-info-circle': toast.type === 'info',
+		       'fa-check-circle': toast.type === 'success',
+		       'fa-exclamation-triangle': toast.type === 'warning',
+		       'fa-times-circle': toast.type === 'error'
+		     }"></i>
+		
+		  <span>{{ toast.message }}</span>
+		
+		  
+		</div>
+		
+
+		<div ng-show="activeSection === 'dashboard'">
+			<div class="mainContainer" id="optionsTab">
+				<ui:include src="home.xhtml" />
+  			</div>
+		</div>
+		<div ng-show="activeSection === 'upload'">
+			<div class="mainContainer" id="optionsTab">
+	  			<ui:include src="bulkUploadModal2.xhtml" />
+	  		</div>
+		</div>
+		<div ng-if="activeSection === 'workgroup'">
+			<div class="mainContainer" id="workgroupTab">
+				<ui:include src="workgroupManagement.xhtml" />
+			</div>
+		</div>
+      
+    </main>
+    </div>
+
+    <script>
+    function toggleSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const icon = document.getElementById("openCloseIcon");
+    const menu = sidebar.querySelector(".sidebar-menu");
+
+    sidebar.classList.toggle("collapsed");
+
+    // Toggle icon direction
+    if (sidebar.classList.contains("collapsed")) {
+      icon.classList.remove("fa-arrow-left");
+      icon.classList.add("fa-arrow-right");
+      menu.style.display = "none"; // hide menu
+    } else {
+      icon.classList.remove("fa-arrow-right");
+      icon.classList.add("fa-arrow-left");
+      menu.style.display = "block"; // show menu
+    }
+  }
+
+    function toggleSubmenu(el) {
+      el.parentElement.classList.toggle("open");
+    }
+  </script>
+
+
+
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/angular/angular.js"></script>
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/angular/angular-animate.js"></script>
+
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/angular/angular-sanitize.js"></script>
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/angular/angular-messages.js"></script>
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/ui-bootstrap-tpls-2.5.0.js"></script>
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/angular-pretty-xml.js"></script>
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/roleManagement.js"></script>
+       <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/workgroupManagement.js"></script> 
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/bulkRequest.js"></script>
+
+  <script src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/js/SailPointBundleLibrary.js"></script>
+  </ui:composition>
+</body>
+</html>

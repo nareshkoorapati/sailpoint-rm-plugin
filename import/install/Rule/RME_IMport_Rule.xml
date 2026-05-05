@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule  language="beanshell" name="RME Import Rule">
+  <Source>
+  import sailpoint.object.*;
+  
+ 
+  log.error("roleMap "+roleMap);
+  
+  String roleName = roleMap.get("Name");
+  
+  Map returnMap = new HashMap();
+  returnMap.put("status","success");
+  
+  if (roleName.startsWith("BFR.Regional Operations")) {
+  	returnMap.put("errorMessage","Birthrigth roles can not be updated.");
+  	returnMap.put("status","Failed");
+  }
+  
+  if (roleName.startsWith("BFR.Engineering")) {
+  	returnMap.put("errorMessage","Birthrigth roles can not be updated.#Invalid role to update");
+  	returnMap.put("status","Invalid");
+  }
+  
+  returnMap.put("roleName",roleName);
+  
+  returnMap.put("roleId","12asdasd34234asasd");
+  
+  
+  
+  return returnMap;
+  
+  </Source>
+</Rule>

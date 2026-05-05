@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:c="http://java.sun.com/jstl/core"
+	xmlns:f="http://java.sun.com/jsf/core" xmlns:ng="http://angularjs.org">
+<!-- Modal -->
+<!-- Edit Role Modal -->
+<div class="custom-modal-backdrop" ng-show="showEditRoleModal"
+	ng-cloak="true">
+	<div class="custom-modal-box">
+		<div class="custom-modal-header">
+			<i class="fas fa-pen"></i>
+			<h4>Edit Role: {{selectedRole.displayName}}</h4>
+			<span class="close-icon" ng-click="closeEditRoleModal()"> <i
+				class="fa-solid fa-xmark"></i>
+			</span>
+		</div>
+
+		<form name="editRoleForm" ng-submit="saveEditedRole()">
+			<!-- Tabs -->
+			<div class="custom-modal-tabs">
+				<div ng-click="switchTab('edit-details')"
+					ng-class="{'active-tab': isTab('edit-details')}">Basic
+					Details</div>
+				<div ng-click="switchTab('edit-extended')"
+					ng-class="{'active-tab': isTab('edit-extended')}">Extended
+					Attributes</div>
+				<div ng-click="switchTab('edit-entitlements')"
+					ng-class="{'active-tab': isTab('edit-entitlements')}">Entitlements</div>
+				<div
+					ng-if="selectedRole.itRoles &amp;&amp; selectedRole.itRoles.length > 0"
+					ng-click="switchTab('edit-itroles')"
+					ng-class="{'active-tab': isTab('edit-itroles')}">Allowed
+					Roles</div>
+			</div>
+
+			<div class="custom-modal-body">
+				<!-- Basic Details Tab -->
+				<div ng-show="isTab('edit-details')" class="custom-modal-section">
+					<table class="custom-table">
+						<tr>
+							<td><strong>Role Name:</strong></td>
+							<td><input type="text" ng-model="selectedRole.name"
+								disabled="disabled" class="modern-input" /></td>
+						</tr>
+						<tr>
+							<td><strong>Display Name:</strong>
+							<span ng-if="true" style="color:red">*</span>
+							</td>
+							
+							<td><input type="text" ng-model="selectedRole.displayName"
+								required="required" class="modern-input" name="displayName"
+								ng-pattern="displayNamePattern"
+       							ng-maxlength="127"
+       							/>
+								<span class="error-message"
+							          ng-show="editRoleForm.displayName.$error.required &amp;&amp; editRoleForm.displayName.$touched">
+							          Display Name is required
+							    </span>
+							    <span ng-show="editRoleForm.displayName.$error.pattern" class="error-message">
+								  Only special characters ,_- are allowed.
+								</span>
+								<span ng-show="editRoleForm.displayName.$error.maxlength" class="error-message">
+								  Maximum 127 characters allowed.
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<td><strong>Description:</strong>
+								<span ng-if="true" style="color:red">*</span>
+							</td>
+							<td><textarea ng-model="selectedRole.description"
+									class="modern-textarea" name="description" required="required"></textarea>
+							<span class="error-message"
+							          ng-show="editRoleForm.description.$error.required &amp;&amp; editRoleForm.description.$touched">
+							          Description is required
+							    </span>
+							</td>
+						</tr>
+						<tr>
+							<td><strong>Type:</strong></td>
+							<td><select ng-model="selectedRole.type" required="required" disabled="disabled"
+								class="modern-select">
+									<option value="IT">IT</option>
+									<option value="Business">Business</option>
+							</select></td>
+						</tr>
+						<tr>
+						<!-- sp-object-suggest-label="This is a test identity selector" 
+						sp-object-suggest-help-text="This is the help text for the Identity selector"
+						-->
+							<td><strong>Owner:</strong></td>
+							<td>
+							<sp-object-suggest id="testingObjectSuggest"
+	                                sp-object-suggest-lookup-id="identitySelector"
+	                                sp-object-suggest-id="identitySelector"
+	                                sp-object-suggest-class="sailpoint.object.Identity"
+	                                sp-object-suggest-context="Global"
+	                                ng-model="selectedRole.owner"
+	                                sp-object-suggest-limit="5"
+	                                sp-object-suggest-editable="false"
+	                                ng-disabled="true"
+									sp-button-aria-label="Select Identity"	                                
+	                                ></sp-object-suggest>
+	                                </td>
+						</tr>
+					</table>
+				</div>
+
+				<!-- Extended Attributes Tab -->
+				<div ng-show="isTab('edit-extended')" class="custom-modal-section">
+					<table class="custom-table">
+					   <tr ng-repeat="attr in selectedRole.extendedAttributes">
+					      <td><strong>{{attr.displayName}}</strong> 
+					      	<span ng-if="attr.required &amp;&amp; attr.editable" style="color:red">*</span>
+					      	<i class="fas fa-info-circle" ng-if="attr.helpKey"
+					         	title="{{attr.helpKey}}"></i>
+					      </td>
+					      <td>
+					         <select ng-show="attr.allowedValues" ng-model="attr.value"
+					            name="{{attr.name}}"
+					            ng-required="attr.required &amp;&amp; attr.editable &amp;&amp; isTab('edit-extended')"
+					            class="modern-select" ng-disabled="!attr.editable">
+					            <option value="">-- Select --</option>
+					            <option ng-repeat="val in attr.allowedValues" value="{{val}}">{{val}}</option>
+					         </select>
+					         <input type="checkbox" ng-if="attr.type === 'boolean'"
+					            ng-model="attr.value" name="{{attr.name}}"
+					            class="modern-checkbox" ng-disabled="!attr.editable"/> 
+					          <input type="text"
+					            ng-if="attr.type === 'sailpoint.object.Identity'"
+					            name="{{attr.name}}" ng-model="attr.value"
+					            ng-change="fetchIdentities(attr)" list="identityList_{{$index}}"
+					            class="modern-input" ng-disabled="!attr.editable"/> 
+					         <datalist id="identityList_{{$index}}">
+					            <option ng-repeat="id in attr.suggestions" value="{{id}}"></option>
+					         </datalist>
+					         <input
+					            ng-if="!attr.allowedValues &amp;&amp; attr.type !== 'boolean' &amp;&amp; attr.type !== 'sailpoint.object.Identity'"
+					            type="text" ng-model="attr.value" name="{{attr.name}}"
+					            ng-required="attr.required &amp;&amp; attr.editable &amp;&amp; isTab('edit-extended')"
+					            class="modern-input" ng-disabled="!attr.editable"/>
+					         <span class="error-message"
+						          ng-show="editRoleForm[attr.name].$invalid &amp;&amp; atrr.isEditable &amp;&amp; editRoleForm[attr.name].$touched">
+						          {{attr.displayName}} is required
+						    </span>
+					      </td>
+					   </tr>
+					</table>
+				</div>
+
+				<!-- Entitlements Tab -->
+				<div ng-show="isTab('edit-entitlements')" class="custom-modal-section">
+				  <table class="custom-table">
+				    <thead>
+				      <tr>
+				        <th>Application</th>
+				        <th>Attribute</th>
+				        <th>Entitlement</th>
+				      </tr>
+				    </thead>
+				    <tbody>
+				      <tr ng-repeat="ent in selectedRole.entitlements">
+				        <td>{{ent.applicationName}}</td>
+				        <td>{{ent.property}}</td>
+				        <td>{{ent.displayValue}}</td>
+				      </tr>
+				      <tr ng-if="selectedRole.entitlements.length === 0">
+				        <td colspan="3" style="text-align:center; color: #888;">No entitlements assigned.</td>
+				      </tr>
+				    </tbody>
+				  </table>
+				</div>
+
+
+
+				<!-- Allowed Roles Tab -->
+				<!--div ng-show="isTab('edit-itroles')" class="custom-modal-section">
+					<div ng-repeat="(entitlement, roles) in groupedITRoles">
+						<div class="collapsible-header">
+							<strong>{{entitlement}}</strong>
+						</div>
+						<table class="custom-table">
+							<thead>
+								<tr>
+									<th>IT Role Name</th>
+									<th>Entitlement</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr ng-repeat="role in roles">
+									<td>{{role.name}}</td>
+									<td>{{role.entitlement}}</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div-->
+				<div ng-show="isTab('edit-itroles')" class="custom-modal-section">
+				  <div class="itrole-controls" style="text-align: right; margin-bottom: 8px;">
+				    <button type="button" class="mat-button-outlined" ng-click="expandAllRoles()">Expand All</button>
+				    <button type="button" class="mat-button-outlined" ng-click="collapseAllRoles()">Collapse All</button>
+				  </div>
+				
+				  <div ng-repeat="role in selectedRole.itRoles">
+				    <div class="collapsible-header" ng-click="toggleITRoleCollapse(role.name)">
+				      <strong>{{role.displayName}}</strong>
+				      <span style="float: right;">
+				        <i class="fa" ng-class="{'fa-chevron-up': !collapsedRoles[role.name], 'fa-chevron-down': collapsedRoles[role.name]}"></i>
+				      </span>
+				    </div>
+				    <div class="collapsible-body" ng-show="!collapsedRoles[role.name]">
+				      <table class="custom-table">
+				        <thead>
+				          <tr>
+				            <th>Application</th>
+				            <th>Attribute</th>
+				            <th>Value</th>
+				          </tr>
+				        </thead>
+				        <tbody>
+				          <tr ng-repeat="ent in role.entitlements">
+				            <td>{{ent.applicationName}}</td>
+				            <td>{{ent.property}}</td>
+				            <td>{{ent.displayValue}}</td>
+				          </tr>
+				        </tbody>
+				      </table>
+				    </div>
+				  </div>
+				  <!--  
+				  <div class="search-it-role-container">
+					  <label><strong>Search IT Role:</strong></label>
+					  <input type="text"
+					         ng-model="itRoleSearchText"
+					         ng-change="onITRoleSearchChange()"
+					         placeholder="Type IT Role name..."
+					         class="modern-input" />
+						  	<ul class="dropdown-it-roles" ng-if="showITRoleDropdown">
+							  <li ng-if="itRoleSearchTriggered &amp;&amp; itRoleSearchResults.length === 0" class="disabled">No Roles found</li>
+							  <li ng-repeat="role in itRoleSearchResults" ng-click="selectITRole(role)">
+							    {{role.displayName}}
+							  </li>
+							</ul>
+					</div>
+					-->
+				</div>
+				
+				
+				
+			</div>
+			
+			
+			
+			<!-- div class="custom-modal-footer" style="text-align: left; padding: 16px;">
+				<button type="button" class="mat-button-outlined"
+					ng-click="closeEditRoleModal()">Cancel</button>
+				<button ng-if="isTab('edit-extended')" type="button" class="mat-button-filled" ng-click="switchTab('edit-extended')">Back</button>
+				
+				<button ng-if="isTab('edit-details')" type="button" class="mat-button-filled" ng-click="switchTab('edit-details')">Next</button>
+				
+				<button ng-if="isTab('edit-extended')" type="submit" class="mat-button-filled">Submit</button>
+			</div> -->
+			
+			<div class="custom-modal-footer">
+				  <!-- Left side buttons -->
+				  <div class="footer-left">
+				    <button type="button" class="mat-button-outlined"
+				            ng-click="closeEditRoleModal()">Cancel</button>
+				
+				    <button ng-show="isTab('edit-extended')" 
+				            type="button" 
+				            class="mat-button-outlined" 
+				            ng-click="switchTab('edit-details')">
+				      <i class="fas fa-arrow-left"></i> Back
+				    </button>
+				  </div>
+				
+				  <!-- Right side buttons -->
+				  <div class="footer-right">
+				    <button ng-show="isTab('edit-details')" 
+				            type="button" 
+				            class="mat-button-filled" 
+				            ng-click="switchTab('edit-extended')">
+				      Next <i class="fas fa-arrow-right"></i>
+				    </button>
+				
+				    <button ng-show="isTab('edit-extended')" 
+				            type="submit" 
+				            class="mat-button-filled">
+				      Submit
+				    </button>
+				  </div>
+				</div>
+			
+
+		</form>
+	</div>
+</div>
+
+</html>

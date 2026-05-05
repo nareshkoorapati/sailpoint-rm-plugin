@@ -1,0 +1,222 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1763612559339" id="c0a8050b9a9e1307819a9f8007ea0501" language="beanshell" modified="1765733615088" name="RME Import Rule">
+  <Source>
+  import sailpoint.object.*;
+  import sailpoint.tools.Util;
+  import sailpoint.api.RoleLifecycler;
+  import sailpoint.object.BundleDifference;
+
+  import sailpoint.tools.xml.XMLObjectFactory;
+  import sailpoint.tools.xml.XMLReferenceResolver;
+  import sailpoint.tools.xml.AbstractXmlObject;
+
+  //1. Failed - Failed to update/create role
+  //2. Updated - Updated 
+  //3. Created - If role created
+  //4. Pending - 
+  //5. Skipped - If no change
+  //6. Invalid - If any information is missing or not valid
+  //7. Success - Validation Success
+
+  XMLObjectFactory factory = XMLObjectFactory.getInstance();
+
+  /*Map config = new HashMap();
+  config.put("performImpactAnalysisOnly",true);
+  config.put("isRoleAdmin",true);
+  config.put("createRoleIfNotExist",false);
+
+  Map roleMap = new HashMap();
+  roleMap.put("Role Name","VPN Business Role"); 
+  roleMap.put("Type","business");
+  roleMap.put("Description","This is a test role created via import rule");
+  roleMap.put("DisplayName","LDAP Manager IT Role 2");
+  roleMap.put("Owner","spadmin");
+  roleMap.put("Disabled","false");
+  roleMap.put("Disabled","false");
+  roleMap.put("applicationName","Directory1");*/
+  
+  log.error("Enter RME Import rule");
+  
+
+	Map returnMap = new HashMap();
+  try {
+
+    log.error("Config is "+config);
+
+    boolean performImpactAnalysisOnly = Util.otob(config.get("performImpactAnalysisOnly"));
+    boolean isRoleAdmin = Util.otob(config.get("isRoleAdmin"));
+    boolean createRoleIfNotExist = Util.otob(config.get("createRoleIfNotExist"));
+
+    createRoleIfNotExist = createRoleIfNotExist &amp;&amp; isRoleAdmin;
+
+    log.error("roleMap "+roleMap);
+
+    log.error("Header is "+roleMap.keySet());
+
+    //commitChanges =true/false
+
+
+    List errors = new ArrayList();
+    
+
+    //returnMap need a status
+    //returnMap.put("status","success");
+
+
+    boolean roleExists = true;
+    String roleName = roleMap.get("Role Name");
+    String roleType = config.get("Type");
+
+    returnMap.put("roleName",roleName);
+
+    if (Util.isNullOrEmpty(roleName)) {
+      returnMap.put("status","Invalid");
+      returnMap.put("errorMessage","Role Name is mandatory");
+
+      return returnMap;
+    }
+
+    Bundle b = context.getObjectByName(Bundle.class,roleName);
+    Bundle deepCopy = null;
+
+    if (b == null &amp;&amp; !createRoleIfNotExist) {
+      returnMap.put("status","Failed");
+      returnMap.put("errorMessage","Creating role is not allowed.");    
+      return returnMap;
+    }
+
+    if (roleType != null &amp;&amp; !(roleType.equalsIgnoreCase("it") || roleType.equalsIgnoreCase("business"))) {
+      returnMap.put("status","Invalid");
+      returnMap.put("errorMessage","Invalid role type specified.");    
+      return returnMap;
+    }
+
+
+    if (b == null &amp;&amp; createRoleIfNotExist) {
+      b = new Bundle();
+      b.setName(roleName);
+      b.setType(roleType.toLowerCase());
+      roleExists = false;  
+    }
+    else {
+      deepCopy = b.deepCopy(context);
+    }
+
+    returnMap.put("roleId",b.getId());
+
+    for(String key : roleMap.keySet()) {
+      String value = roleMap.get(key);
+      log.error("Key :"+key+" Value :"+value);
+
+      switch(key) {
+        case "Role Name":
+        //already handled
+        break; 
+        case "Type":
+        //already handled
+        break;
+        case "Description":
+        b.addDescription(value,"en_US");
+        break;
+        case "DisplayName":
+        b.setDisplayName(value);
+        break;
+        case "Owner":
+        Identity owner = context.getObjectByName(Identity.class, value);
+        if (owner != null) {
+          b.setOwner(owner);
+        } else {
+          errors.add("Owner identity "+value+" not found.");
+        }
+        break;
+        case "Disabled":
+        b.setDisabled(value.equalsIgnoreCase("true") || value.equalsIgnoreCase("yes"));
+        break;
+        case "AddEntitlement":
+        //already handled
+        break;
+        case "AddITRoles":
+        //already handled
+        break;
+        case "RemoveITRoles":
+        //already handled
+        break;
+        case "RemoveEntitlement":
+        //already handled
+        break;
+        default:
+        b.setAttribute(key, value);
+        break;
+      }
+    }
+
+    //b.addRequirement(context.getObjectByName(Bundle.class,"LDAP Manager IT Role"));
+
+    if (deepCopy != null) {
+      RoleLifecycler roleLifecycler = new RoleLifecycler(context);
+      BundleDifference changes = roleLifecycler.diff(deepCopy, b);
+
+      /*List list = new ArrayList();
+
+      for(Difference diff : changes.getAttributeDifferences()) {
+        Map m  = new HashMap();
+        m.put("attribute",diff.getAttribute());
+        m.put("oldValue",diff.getOldValue());
+        m.put("newValue",diff.getNewValue());
+        list.add(m);
+      } 
+
+      return list;*/
+      //String str =  factory.toXml(changes,false);
+
+
+      //return factory.parseXml((XMLReferenceResolver)context,str,false);
+      returnMap.put("changes",factory.toXml(changes,false));
+      log.error("Changes detected :"+changes);
+      if (!roleExists) {
+        returnMap.put("roleId",b.getId());
+      }
+    }
+    
+    returnMap.put("status","Success");
+
+    if (!performImpactAnalysisOnly) {
+      context.saveObject(b);
+      context.commitTransaction();
+      log.error("Role "+b.getName()+" saved/updated successfully.");
+      if (roleExists) {
+      	returnMap.put("status","Updated");        
+      }
+      else {
+      	returnMap.put("status","Created");
+      }
+
+    }
+
+    if (errors.size() > 0) {
+
+      returnMap.put("status","Failed");
+      returnMap.put("errorMessage",String.join("|",errors));    
+      return returnMap;
+    }
+
+
+    
+   	
+  }
+  catch(Exception e) {
+  	returnMap.put("status","Failed");
+    returnMap.put("errorMessage",e.getMessage());
+  }
+  finally {
+  	return returnMap;
+  }
+
+  
+  return returnMap;
+
+  
+
+  </Source>
+</Rule>

@@ -1,0 +1,52 @@
+USE identityiqPlugin
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.tables where name = 'rme_batch_request' and schema_id=SCHEMA_ID('identityiqPlugin'))
+BEGIN
+    create table identityiqPlugin.rme_batch_request (
+        id nvarchar(32) not null,
+            created numeric(19,0),
+            modified numeric(19,0),
+            assigned_scope_path nvarchar(450),
+            file_name nvarchar(255),
+            header nvarchar(4000),
+            run_date numeric(19,0),
+            completed_date numeric(19,0),
+            record_count int,
+            completed_count int,
+            error_count int,
+            invalid_count int,
+            message nvarchar(4000),
+            error_message nvarchar(max),
+            file_contents nvarchar(max),
+            status nvarchar(255),
+            run_config nvarchar(max),
+            owner nvarchar(32),
+            assigned_scope nvarchar(32),
+            primary key (id)
+    );    
+    GO
+END
+
+IF NOT EXISTS (SELECT * FROM sys.tables where name = 'rme_batch_request_item' and schema_id=SCHEMA_ID('identityiqPlugin'))
+BEGIN
+    create table identityiqPlugin.rme_batch_request_item (
+       id nvarchar(32) not null,
+        created numeric(19,0),
+        modified numeric(19,0),
+        assigned_scope_path nvarchar(450),
+        request_data nvarchar(4000),
+        status nvarchar(255),
+        message nvarchar(4000),
+        error_message nvarchar(max),
+        result nvarchar(255),
+        role_id nvarchar(255),
+        role_name nvarchar(255),
+        batch_request_id nvarchar(32),
+        owner nvarchar(255),
+        owner_id nvarchar(32),
+        idx int,
+        primary key (id)
+    );
+    GO
+END

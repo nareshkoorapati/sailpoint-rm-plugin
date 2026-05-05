@@ -1,0 +1,495 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:sp="http://sailpoint.com/ui"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:c="http://java.sun.com/jstl/core"
+	xmlns:a4j="http://richfaces.org/a4j"
+	xmlns:t="http://myfaces.apache.org/tomahawk"
+	xmlns:h="http://java.sun.com/jsf/html">
+
+<head>
+<meta charset="utf-8" />
+<title>Bulk Upload - Role Management</title>
+</head>
+<body>
+	<ui:composition>
+        <!-- bulkUploadModal.xhtml -->
+        <div class="bulk-upload-container" ng-app="RoleApp" ng-controller="BulkRequestController">
+
+            <!-- TOP ACTION BAR -->
+            <div class="card-container" ng-show="!showCreateBatch &amp;&amp; !showDetails">
+                <div class="dashboard-card" ng-click="openCreateBatch()">
+                    <div class="card-title">
+                    <span class="card-title">Create New Batch Request</span>
+                        <i class="fas fa-chevron-right card-arrow"></i>                    
+                    </div>
+                </div>
+                <div class="dashboard-card" ng-click="downloadTemplate()">
+                    <div class="card-title">
+                    <span class="card-title">Download Template file</span>
+                        <i class="fas fa-chevron-right card-arrow"></i>                    
+                    </div>
+                    
+                </div>
+
+                <div class="dashboard-card" ng-if="config.isRoleAdmin" ng-click="togglePendingOnly()">
+                    <div class="card-title">
+                    <span class="card-title">{{ showPendingOnly ? 'Show All Requests' : 'Approvals' }}</span>
+                        <i class="fas fa-chevron-right card-arrow"></i>                    
+                    </div>
+                    <div class="card-count" ng-if="!showPendingOnly">
+                        {{ pendingCount }}
+                    </div>
+                </div>
+                
+            </div>
+
+            
+            <!-- ================= DEFAULT VIEW: EXISTING BULK REQUESTS TABLE ================= -->
+            <div ng-show="!showCreateBatch &amp;&amp; !showDetails">
+                <div class="page-loading-overlay" ng-show="isBulkRequestsLoading">
+                    <div class="page-loading-spinner"></div>
+                </div>
+
+                <h3 class="section-title">Existing Bulk Requests</h3>
+                <!-- MODERN SEARCH BAR -->
+                <div class="modern-search-bar">
+                    <i class="fas fa-search search-icon"></i>
+                    <input class="searchRoles" type="text"
+                            placeholder="Filter by name, owner, or status..."
+                            ng-model="bulkRequestFilterText"        
+                            
+                            ng-model-options="{ debounce: 300 }" />
+                    <i class="fas fa-times clear-icon"
+                        ng-if="bulkRequestFilterText"
+                        ng-click="clearSearch()">
+                    </i>
+                </div>
+
+                <!-- Your existing table + pagination goes inside this wrapper -->
+                <div class="table-wrapper-fixed">
+                    <!-- EXAMPLE: replace with your real table + pager -->
+                    <table class="role-table">
+                        <thead>
+                            <tr>
+                                <th>Batch Name</th>
+                                <th>Status</th>
+                                <th>Submitted By</th>
+                                <th>Submitted On</th>
+                                <th>Record Count</th>
+                                <th>Approval Status</th>
+                            </tr>
+                        </thead>
+                        <tbody ng-click="hideContextMenu()">
+                            <tr ng-repeat="req in bulkRequests | filter:filterBulkRequests"
+                                ng-click="viewDetails(req)"
+                                ng-right-click="openBulkContextMenu($event, req)"
+                                class="clickable-row">
+                                <td>{{req.fileName}}</td>
+                                <td>{{req.status}}</td>
+                                <td>{{req.owner}}</td>
+                                <td>{{req.submittedOn | date:'M/d/yy h:mm a'}}</td>
+                                <td>{{req.recordCount}}</td>
+                                <td>{{req.approvalStatus}}</td>
+                            </tr>
+                            <tr ng-if="!isBulkRequestsLoading &amp;&amp; totalBatchRequests === 0">
+                                <td colspan="6" style="text-align: center; color: #777; padding: 24px 0;">
+                                    No Batch Requests found
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="context-menu"
+                     ng-if="contextMenuVisible"
+                     ng-style="{'top': contextMenuPosition.y + 'px', 'left': contextMenuPosition.x + 'px'}"
+                     style="position: fixed; z-index: 2000; background: #fff; border: 1px solid #ddd; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 160px; padding: 4px 0;">
+                    <button type="button"
+                            style="width: 100%; padding: 8px 12px; text-align: left; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;"
+                            ng-click="deleteBulkRequest(contextMenuTarget, $event)">
+                        <i class="fa fa-times" style="color: #c00;"></i>
+                        Delete
+                    </button>
+                </div>
+                <!-- Pagination -->
+                <pagination-bar
+                    total-records="totalBatchRequests"
+                    page="batchRequestCurrentPage"
+                    page-size="batchRequestPageSize"
+                    page-size-options="[10,25,50,100]"
+                    on-change="onBatchPageChange(page, pageSize)"
+                    on-refresh="loadBulkRequests()">
+                </pagination-bar>
+
+            </div>
+
+            <!-- ================= CREATE BATCH REQUEST FORM ================= -->
+            <div ng-show="showCreateBatch" class="create-batch-container">
+                <div class="batch-form">           
+                
+                <h3 class="section-title">Create Batch Request</h3>
+
+                <form name="createBatchForm" ng-submit="submitBulkUpload()">
+
+                    <!-- Choose batch file -->
+                    <div class="form-row">
+                        <label class="form-label">
+                            Choose batch file:
+                        </label>
+                        <div class="form-field">
+                            <input type="file" id="batchFileInput"
+                                accept=".csv"
+                                required="true" 
+                                file-change="onFileSelected(file, base64, error)"/>
+                            <p class="help-text">
+                                (Refer to template for batch file formatting details.)
+                            </p>
+                            <p class="help-text">
+                                Maximum file size: 10MB.
+                            </p>
+                            <p class="help-text error-text" ng-if="fileError">
+                                {{fileError}}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Manual input -->
+                    <div class="form-row">
+                        <label class="form-label">Role Type:</label>
+                        <div class="form-field">
+                            <label class="radio-option">
+                                <input type="radio"
+                                    ng-model="batchConfig.roleType"
+                                    value="it" />
+                                IT Roles
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio"
+                                    ng-model="batchConfig.roleType"
+                                    value="business" />
+                                Business Roles
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Create Role -->
+                    <div class="form-row" ng-if="config.isRoleAdmin">
+                        <label class="form-label">Create Role If not Exist:</label>
+                        <div class="form-field">
+                            <label class="radio-option">
+                                <input type="radio"
+                                    ng-model="batchConfig.createRoleIfNotExist"
+                                    value="true"/>
+                                Yes
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio"
+                                    ng-model="batchConfig.createRoleIfNotExist"
+                                    value="false"/>
+                                No
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row" ng-if="config.isRoleAdmin">
+                        <label class="form-label">Perform Impact Analysis only?</label>
+                        <div class="form-field">
+                            <label class="radio-option">
+                                <input type="radio"
+                                    ng-model="batchConfig.performImpactAnalysisOnly"
+                                    value="true" />
+                                Yes
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio"
+                                    ng-model="batchConfig.performImpactAnalysisOnly"
+                                    value="false" />
+                                No
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Buttons -->
+                    <div class="form-actions">
+                        <button type="submit"
+                                class="mat-button-filled" ng-disabled="fileError"
+                                ng-class="{'disabled-btn': fileError}">
+                            Submit
+                        </button>
+
+                        <button type="button"
+                                class="mat-button-outlined"
+                                ng-click="cancelCreateBatch()">
+                            Cancel
+                        </button>
+                    </div>
+
+                </form>
+                </div>
+
+                <div class="validation-errors" ng-if="previewErrors.length">
+                    <ul>
+                        <li ng-repeat="err in previewErrors">{{err}}</li>
+                    </ul>
+                </div>
+                <!-- CSV PREVIEW TABLE -->
+                <div class="table-wrapper-fixed" ng-if="previewRows.length">
+
+                    <table class="role-table">
+                        <thead>
+                            <tr>
+                                <th ng-repeat="h in previewHeaders track by $index">{{h}}</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- show rows for current page only -->
+                            <tr ng-repeat="row in previewRows.slice((previewPage - 1) * previewPageSize,
+                                                                    previewPage * previewPageSize)
+                                        track by $index">
+                                <td ng-repeat="cell in row track by $index">{{cell}}</td>
+                                <td>
+                                    <button type="button"
+                                            class="mat-button-outlined"
+                                            ng-click="deletePreviewRow((previewPage - 1) * previewPageSize + $index)">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+
+                        </tbody>
+                    </table>            
+                </div>
+                <!-- pagination bar -->
+                <div class="pagination-bar" ng-if="previewRows.length > previewPageSize">
+                    
+                    <div class="pagination-info">
+                        {{ ((previewPage - 1) * previewPageSize) + 1 }}
+                        -
+                        {{ (previewPage * previewPageSize) > previewRows.length
+                            ? previewRows.length
+                            : (previewPage * previewPageSize) }}
+                        of {{ previewRows.length }}
+                    </div>
+
+                    <div class="pagination-actions">
+                        <button type="button"
+                                class="page-arrow"
+                                ng-click="goPrevPage()"
+                                ng-disabled="previewPage === 1">
+                            ‹
+                        </button>
+
+                        <button type="button"
+                                class="page-arrow"
+                                ng-click="goNextPage()"
+                                ng-disabled="previewPage * previewPageSize >= previewRows.length">
+                            ›
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- DETAILS VIEW -->
+            <div ng-show="showDetails" class="batch-details">
+
+                <h3 class="section-title">Batch Request Details</h3>
+
+                <div class="details-header">
+
+                    <div class="details-grid">
+                        <div class="details-row">
+                            <span class="details-label">File Name:</span>
+                            <span class="details-value">{{selectedBatch.fileName}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Date Requested:</span>
+                            <span class="details-value">{{selectedBatch.submittedOn | date:'M/d/yy h:mm a'}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Date Completed:</span>
+                            <span class="details-value">{{selectedBatch.completedDate | date:'M/d/yy h:mm a'}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Status:</span>
+                            <span class="details-value">{{selectedBatch.status}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Approval Status:</span>
+                            <span class="details-value">{{selectedBatch.approvalStatus}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Role Type:</span>
+                            <span class="details-value">{{selectedBatch.config ? selectedBatch.config.roleType : 'N/A'}}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="details-grid">
+                        <div class="details-row">
+                            <span class="details-label">Total Records:</span>
+                            <span class="details-value">{{selectedBatch.recordCount}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Total Completed:</span>
+                            <span class="details-value">{{selectedBatch.completedCount}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Total Errors:</span>
+                            <span class="details-value">{{selectedBatch.errorCount}}</span>
+                        </div>
+                        <div class="details-row">
+                            <span class="details-label">Total Not Valid:</span>
+                            <span class="details-value">{{selectedBatch.invalidCount}}</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="details-actions">
+                    <button class="btn btn-secondary" ng-click="backToList()">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <div class="details-actions-right">
+                        <button class="mat-button-filled btn-primary"
+                                type="button"
+                                ng-click="downloadBatchFile(selectedBatch)"
+                                ng-disabled="!selectedBatch">
+                            Download Batch File
+                        </button>
+                        <button class="mat-button-filled btn-primary"
+                                type="button"
+                                ng-click="downloadSummary(selectedBatch)"
+                                ng-disabled="!selectedBatch">
+                            Download Summary
+                        </button>
+                        <button class="btn btn-success"
+                                type="button"
+                                ng-if="canApproveReject() &amp;&amp; selectedBatch.items &amp;&amp; selectedBatch.items.length"
+                                ng-click="approveSelectedBatch(selectedBatch)">
+                            Approve
+                        </button>
+                        <button class="btn btn-danger"
+                                type="button"
+                                ng-if="canApproveReject() &amp;&amp; selectedBatch.items &amp;&amp; selectedBatch.items.length"
+                                ng-click="openRejectConfirmation(selectedBatch)">
+                            Reject
+                        </button>
+                    </div>
+                </div>
+
+                <h4 class="section-subtitle">Batch Request Items</h4>
+
+                <div class="table-wrapper-fixed">
+                    <table class="role-table">
+                        <thead>
+                            <tr>
+                                <th>Role Name</th>                                
+                                <th>Status</th>
+                                <th>Error Message</th>
+                                <th>Record</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- assume API gives selectedBatch.items -->
+                             
+                            <tr ng-repeat="item in selectedBatch.items" ng-click="showRoleDifferences(item)" class="clickable-row">
+                                <td>{{item.roleName}}</td>                                
+                                <td>{{item.status}}</td>
+                                <td>{{item.errorMessage || '-'}}</td>
+                                <td>{{item.record}}</td>
+                            </tr>
+                        </tbody>
+                    </table>                    
+                </div>
+                <pagination-bar
+                    total-records="requestItemsCount"
+                    page="requestItemsCurrentPage"
+                    page-size="requestItemsPageSize"
+                    page-size-options="[10,25,50,100]"
+                    on-change="onRequestItemsPageChange(page, pageSize)">
+                </pagination-bar>
+                
+            </div>
+			<div class="custom-modal-backdrop" ng-show="showDifferenceModel" ng-cloak="true">
+				<div class="custom-modal-box">
+					<div class="custom-modal-header">
+						<i class="fas fa-info-circle"></i>
+						<h4>Role: {{differenceRole.roleName || differenceRole.name}}</h4>
+						<span class="close-icon" ng-click="closeDifferenceModel()"><i
+							class="fa-solid fa-xmark"></i></span>
+					</div>
+					<div class="custom-modal-body">
+						<div ng-if="differenceRole.errorMessage" class="diff-error" style="min-width: 240px; margin: 0;">
+							<div><b>Error Message(s):</b></div>
+
+							<ul style="list-style-type:none;">
+								<li ng-repeat="msg in (differenceRole.errorMessage || '').split('|') track by $index" ng-if="msg.trim()">{{msg.trim()}}</li>
+							</ul>
+						</div>
+						<div ng-if="differencesLoading" class="diff-loading">Loading differences...</div>
+						<div ng-if="!differencesLoading &amp;&amp; differencesError" class="diff-error">{{differencesError}}</div>
+						<div ng-if="!differencesLoading &amp;&amp; !differencesError &amp;&amp; !roleDifferences.length" class="diff-empty"><b>No differences found.</b></div>
+						<table class="custom-table" ng-if="!differencesLoading &amp;&amp; !differencesError &amp;&amp; roleDifferences.length">
+							<thead>
+	                            <tr>
+	                                <th>Attribute</th>
+	                                <th>Old Value</th>
+	                                <th>New Value</th>
+	                            </tr>
+                        	</thead>
+                        	<tbody>
+                            <tr ng-repeat="diff in roleDifferences track by $index">
+                                <td>{{diff.attribute}}</td>
+                                <td>{{diff.oldValue}}</td>
+                                <td>{{diff.newValue}}</td>
+                            </tr>
+                        </tbody>
+						</table>
+					</div>
+				</div>
+			</div>            
+			<div class="custom-modal-backdrop" ng-show="showRejectConfirmation" ng-cloak="true">
+				<div class="custom-modal-box" style="max-width: 560px;">
+					<div class="custom-modal-header">
+						<i class="fas fa-exclamation-triangle"></i>
+						<h4>Reject Batch Request</h4>
+						<span class="close-icon" ng-click="closeRejectConfirmation()"><i
+							class="fa-solid fa-xmark"></i></span>
+					</div>
+					<div class="custom-modal-body">
+						<p style="margin-bottom: 12px;">
+							This action is irreversible and will mark all pending items in this batch as rejected.
+						</p>
+						<div class="form-row" style="display: block; margin-bottom: 0;">
+							<label class="form-label" style="display: block; margin-bottom: 8px;">Reason for rejection</label>
+							<div class="form-field" style="width: 100%;">
+								<textarea ng-model="rejectDialog.reason"
+								          rows="4"
+								          maxlength="1000"
+								          placeholder="Enter the reason for rejection. This will be used for audit and requester notification."
+								          style="width: 100%; resize: vertical;"></textarea>
+								<p class="help-text error-text" ng-if="rejectDialog.error">
+									{{rejectDialog.error}}
+								</p>
+							</div>
+						</div>
+						<div class="form-actions" style="justify-content: flex-end; margin-top: 16px;">
+							<button type="button"
+							        class="mat-button-outlined"
+							        ng-click="closeRejectConfirmation()">
+								Cancel
+							</button>
+							<button type="button"
+							        class="btn btn-danger"
+							        ng-click="confirmRejectSelectedBatch()">
+								Confirm Reject
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+
+        </div><!-- put everything inside it -->
+    </ui:composition>
+</body>
+</html>

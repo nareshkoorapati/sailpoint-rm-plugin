@@ -1,0 +1,112 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="CNC_RME_GetWorkgroupMembers">
+  <Description>This is an example rule for selecting who must supply a password to impersonate another identity.
+
+  </Description>
+  <Signature returnType="java.lang.Boolean">
+    <Inputs>
+      <Argument name="loggedInUser">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="workgroupId">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+
+  import sailpoint.object.Capability;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Identity.CapabilityManager;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.Bundle;
+  import sailpoint.object.Filter;
+  import sailpoint.api.ObjectUtil;
+
+  import sailpoint.tools.Util;
+
+  String logPrefix = "CNC_RME_GetWorkgroupMembers:";
+  
+  //String loggedInUser = "spadmin";
+  //String workgroupId = "c0a8019a7fd2158a817fd335b6f302e5"; 
+
+  public void log(String message) {    
+    log.error(logPrefix+" "+message);
+  }
+
+
+  log("loggedInUser "+loggedInUser);
+
+
+  Map returnMap = new HashMap();
+  
+  List headers =  new ArrayList();
+  
+  Map map1 = new HashMap();
+  map1.put("label", "Name");
+  map1.put("key", "name");
+  headers.add(map1);
+  
+   Map map2 = new HashMap();
+  map2.put("label", "NetworkId");
+  map2.put("key", "employeeid");
+  headers.add(map2);
+  
+  Map map3 = new HashMap();
+  map3.put("label", "Display Name");
+  map3.put("key", "displayName");
+  headers.add(map3);
+  
+ 
+  returnMap.put("headers",headers);
+  
+  
+  List props = new ArrayList();
+  props.add("name");
+  props.add("displayName");
+  props.add("employeeid");
+  
+  
+  
+  
+  List members = new ArrayList();
+		Identity workgroup = context.getObjectById(Identity.class, workgroupId);
+		if (workgroup.isWorkgroup()) {
+			
+			Iterator itr = ObjectUtil.getWorkgroupMembers(context, workgroup, props);
+			if (itr != null) {
+				while(itr.hasNext()) {
+					Object[] row = (Object[])itr.next();
+					Map member = new HashMap();
+					member.put("name",(String)row[0]);
+					member.put("displayName",(String)row[1]);
+					member.put("employeeid",(String)row[2]);
+					members.add(member);
+				}
+				Util.flushIterator(itr);
+			}
+		}
+		else {
+			Map member = new HashMap();
+			member.put("name",workgroup.getName());
+			member.put("displayName",workgroup.getDisplayableName());
+			member.put("employeeid",workgroup.getAttribute("employeeid"));
+			members.add(member);
+		}
+  
+  returnMap.put("objects",members);
+  log("Exit getWorkgroupMembers");
+  return returnMap;	
+  </Source>
+</Rule>

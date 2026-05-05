@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1765145211321" id="c0a8050b9ae51390819afada71b90c9b" language="beanshell" modified="1765423259214" name="RME_Bulk_Request_Config_Rule">
+  <Description>This rule is used to return the Bulk Request config
+
+  </Description>
+  <Signature returnType="Map">
+    <Inputs>
+      <Argument name="loggedInUser">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+ import sailpoint.object.Capability;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Identity.CapabilityManager;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.Bundle;
+  import sailpoint.object.Filter;
+
+  import sailpoint.tools.Util;
+
+  String logPrefix = "CNC_RME_Bulk_Request_Config_Rule:";
+  
+ Map results = new HashMap();
+
+  public void log(String message) {    
+    log.error(logPrefix+" "+message);
+  }
+
+
+  log("loggedInUser "+loggedInUser);
+
+
+ 
+
+
+
+  Identity impersonatorIdentity = context.getObjectByName(Identity.class, loggedInUser);
+  if (impersonatorIdentity == null) {
+    log.error("Cannot find identity: " + loggedInUser);
+    return resutls;
+  }
+
+  
+  Identity wg = context.getObjectByName(Identity.class,"LDAP Application Admin");
+  
+  results.put("isRoleAdmin",impersonatorIdentity.isInWorkGroup(wg));
+  
+  return results;
+
+  
+  return results;			
+  </Source>
+</Rule>

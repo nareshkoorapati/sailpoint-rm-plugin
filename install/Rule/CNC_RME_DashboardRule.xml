@@ -1,0 +1,111 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="CNC_RME_DashboardRule">
+  <Description>This is an example rule for selecting who must supply a password to impersonate another identity.
+
+  </Description>
+  <Signature returnType="java.lang.Boolean">
+    <Inputs>
+      <Argument name="loggedInUser">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+ import sailpoint.object.Capability;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Identity.CapabilityManager;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.Bundle;
+  import sailpoint.object.Filter;
+
+  import sailpoint.tools.Util;
+
+  String logPrefix = "CNC_RME_DashboardRule:";
+  
+  String loggedInUser = "spadmin";
+
+  public void log(String message) {    
+    log.error(logPrefix+" "+message);
+  }
+
+
+  log("loggedInUser "+loggedInUser);
+
+
+  List results = new ArrayList();
+  QueryOptions ops = new QueryOptions();
+  List typeList = Util.csvToList("it,business");
+  String REQUESTABLE = "privileged";
+  String rmeAdmin = "RMEAdministrator";
+
+
+
+  Identity impersonatorIdentity = context.getObjectByName(Identity.class, loggedInUser);
+  if (impersonatorIdentity == null) {
+    log.error("Cannot find identity: " + loggedInUser);
+    return resutls;
+  }
+
+
+  CapabilityManager cm = impersonatorIdentity.getCapabilityManager();
+
+
+  if (cm.hasCapability(rmeAdmin)) {
+
+
+    Filter f =  Filter.in("type",typeList);
+    ops.addFilter(f);
+
+    int count = context.countObjects(Bundle.class,ops);
+    Map allRolesMap = new HashMap();
+    allRolesMap.put("title","Total Roles");
+    allRolesMap.put("count",count);
+    results.add(allRolesMap);
+
+
+  }
+
+  Filter f1 = Filter.and(Filter.in("type",typeList), Filter.eq("disabled",false), Filter.eq(REQUESTABLE, true));
+  ops = new QueryOptions();
+  ops.addFilter(QueryOptions.getOwnerScopeFilterUsingSubqueries(context.getObjectByName(Identity.class, loggedInUser),"owner"));
+  ops.addFilter(f1);
+  int enabledRequestableCount = context.countObjects(Bundle.class,ops);
+  Map map1 = new HashMap();
+  map1.put("title","Enabled/Requestable");
+  map1.put("count",enabledRequestableCount);
+  results.add(map1);
+  
+  
+  Filter f2 = Filter.and(Filter.in("type",typeList), Filter.eq("disabled",false), Filter.eq(REQUESTABLE, false));
+  ops = new QueryOptions();
+  ops.addFilter(QueryOptions.getOwnerScopeFilterUsingSubqueries(context.getObjectByName(Identity.class, loggedInUser),"owner"));
+  ops.addFilter(f2);
+  int enabledNonRequestableCount = context.countObjects(Bundle.class,ops);
+  Map map2 = new HashMap();
+  map2.put("title","Enabled/Non-Requestable");
+  map2.put("count",enabledNonRequestableCount);
+  results.add(map2);
+  
+  
+  Filter f3 = Filter.and(Filter.in("type",typeList), Filter.eq("disabled",true));
+  ops = new QueryOptions();
+  ops.addFilter(QueryOptions.getOwnerScopeFilterUsingSubqueries(context.getObjectByName(Identity.class, loggedInUser),"owner"));
+  ops.addFilter(f3);
+  int disabledCount = context.countObjects(Bundle.class,ops);
+  Map map3 = new HashMap();
+  map3.put("title","Disabled");
+  map3.put("count",disabledCount);              
+  results.add(map3);
+  // Fall back
+  return results;			
+  </Source>
+</Rule>

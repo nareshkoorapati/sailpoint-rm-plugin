@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://java.sun.com/jsf/facelets" xmlns:c="http://java.sun.com/jstl/core"
+	xmlns:f="http://java.sun.com/jsf/core" xmlns:ng="http://angularjs.org"
+	xmlns:sp="http://sailpoint.com/ui">
+	
+<ui:composition>
+
+  <sp:script>
+    <src>#{base.requestContextPath}/scripts/sailpoint/Suggest.js?#{debug.revision}</src>
+    <src>#{base.requestContextPath}/scripts/sailpoint/MultiSuggest.js?#{debug.revision}</src>
+  </sp:script>
+
+<!--  
+<div class="toolbar" ng-init="loadData()">
+	<div class="search-container">
+		<i class="fa-solid fa-filter filter-icon" ng-click="toggleSearchBy()"></i>
+		<input type="text" placeholder="Search roles..." ng-model="searchText" />
+	</div>
+
+</div>
+-->
+
+
+
+	<!-- Dashboard Container -->
+	<div class="card-container">
+	  <div class="dashboard-card" ng-repeat="card in dashboardCards" ng-click="filterByCard(card)">
+	    <div class="card-title">
+	      <span class="card-title">{{ card.title }}</span>
+      		<i class="fas fa-chevron-right card-arrow"></i>
+	      
+	    </div>
+	    <div class="card-count" ng-if="card.count !== null">
+	      {{ card.count }}
+	    </div>
+	  </div>
+	  
+	</div>
+
+<div class="modern-search-bar">
+  <i class="fas fa-search search-icon"></i>
+  <input class="searchRoles" type="text"
+         placeholder="Search roles with name or display name..."
+         ng-model="roleSearchText"
+         ng-keyup="handleRoleSearchKey($event)"
+         ng-change="triggerRoleSearch()"
+         ng-model-options="{ debounce: 300 }" />
+   <i class="fas fa-times clear-icon"
+     ng-if="roleSearchText"
+     ng-click="clearSearch()">
+  </i>
+</div>
+<!--  
+<div class="search-by-columns" ng-show="showSearchBy">
+	<label><input type="radio" ng-model="searchColumn" value="name" />
+		Role Name</label> <label><input type="radio" ng-model="searchColumn" value="type" /> Type</label> <label><input
+			type="radio" ng-model="searchColumn" value="description" /> Description</label> <label><input type="radio"
+			ng-model="searchColumn" value="owner" /> Role Owner</label>
+</div>
+-->
+
+<div class="role-flags-legend">	
+	<span><img src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-r.png" alt="R"/> = Requestable</span>
+	<span><img src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-p.png" alt="P"/> = PHI</span>
+	<span><img src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-n.png" alt="N"/> = NAC</span>
+	<span><img src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-a.png" alt="A"/> = Admin</span>	
+</div>
+
+<div class="action-bar">
+	<!-- Left-aligned: selection count -->
+	<div class="selection-text">
+		<span ng-if="selectedRoles.length > 0">{{selectedRoles.length}} selected</span>
+	</div>
+
+	<!-- Right-aligned: icons -->
+	<div class="action-icons">
+		<!-- Column Selector -->
+		<div class="column-toggle-wrapper" ng-click="$event.stopPropagation()">
+			<span class="icon-circle" ng-click="toggleColumnMenu(); $event.stopPropagation();">
+				<i class="fa-solid fa-table-columns" title="Column Chooser"/>
+			</span>
+			
+			<div class="column-menu searchable-scrollable-menu" ng-show="showColumnMenu"
+				ng-blur-close="showColumnMenu = false" ng-click="$event.stopPropagation()">
+				<input type="text" class="column-search-input" placeholder="Search columns..."
+					ng-model="columnSearchText" />
+				<div class="column-list">
+					<label ng-repeat="col in allColumns | filter:columnSearchText">
+						<input type="checkbox" ng-model="visibleColumns[col.name]" /> {{col.label}}
+					</label>
+				</div>
+			</div>
+		</div>
+		<!-- Download -->
+		<!-- i class="fas fa-download download-icon" title="Download" ng-if="roles &amp;&amp; roles.length > 0" ng-click="downloadRoles()"></i-->
+		<span class="icon-circle" ng-if="roles &amp;&amp; roles.length > 0" ng-click="downloadRoles()">
+		  <i class="fas fa-download" title="Download"></i>
+		</span>
+		
+
+		<!-- Action Selector Icon (only show when roles selected) 
+		<div class="action-dropdown-wrapper" ng-show="selectedRoles.length > 0" ng-click="$event.stopPropagation()">
+			<i class="fa-solid fa-tags action-icon" ng-click="toggleActionMenu()"></i>
+
+			
+			<div class="action-menu modern-dropdown" ng-show="showActionMenu" ng-blur-close="showActionMenu = false"
+				ng-click="$event.stopPropagation()">
+				 <div class="action-item" ng-click="performAction('enable')">
+					<i class="fas fa-check-circle"></i> Enable
+				</div>
+				<div class="action-item" ng-click="performAction('disable')">
+					<i class="fas fa-ban"></i> Disable
+				</div>
+				<div class="action-item" ng-click="performAction('delete')">
+					<i class="fas fa-trash"></i> Delete
+				</div>
+				<div class="action-item" ng-click="performAction('export')">
+					<i class="fas fa-file-export"></i> Export
+				</div>
+			</div>
+			
+			<div class="custom-modal-backdrop" ng-show="showNotificationModal" ng-cloak="true">
+				<div class="custom-modal-box" style="max-width: 600px;">
+					<div class="custom-modal-header">
+						<i class="fas fa-bell"></i>
+						<h4>Notification Settings</h4>
+						<span class="close-icon" ng-click="closeNotificationModal()">
+							<i class="fa-solid fa-xmark"></i>
+						</span>
+					</div>
+
+					<div class="custom-modal-body">
+						
+						<label class="agreement-checkbox"
+							ng-class="{'not-agreed': !notificationConfig.agree, 'agreed': notificationConfig.agree}">
+							<input type="checkbox" ng-model="notificationConfig.agree" required="required"
+								name="agree" />
+							I Agree that <u><strong>{{actionPerforming}}</strong></u> will {{actionPerforming}} roles and it
+							will impact user access.
+						</label>
+						<label><input type="checkbox" ng-model="notificationSettings.enabled" ng-click="addMultiSuggest()"/> Send
+							Notification</label>
+
+						<div ng-if="notificationSettings.enabled" style="margin-top: 16px;">
+							<label><input type="checkbox" ng-model="notificationSettings.attachFile" /> Attach
+								file</label>
+
+							<div style="margin-top: 16px;">
+								<label>Select Recipients to Get Notifications:</label>
+								<div id="emailRecipientMultiSuggest"></div>
+							</div>
+							
+
+						</div>
+						
+					</div>
+
+					<div class="custom-modal-footer" style="text-align: right;">
+						<button class="mat-button-outlined" ng-click="closeNotificationModal()">Cancel</button>
+						<button class="mat-button-filled" ng-class="{'disabled-btn': !notificationConfig.agree}" ng-disabled="!notificationConfig.agree" ng-click="submitBulkAction()">Submit</button>
+					</div>
+				</div>
+			</div>
+
+		</div>
+		-->
+
+
+
+		
+	</div>
+</div>
+
+
+
+<div class="table-wrapper-fixed" ng-init="loadData()">
+	<table class="role-table" ng-if="roles.length > 0">
+		<thead>
+			<tr>
+				<th><input type="checkbox" ng-click="toggleAll()" ng-checked="isAllSelectedOnCurrentPage()"/></th>
+				<th>
+					<span ng-click="sortBy('complaineScore')" style="cursor: pointer;">
+						Compliance Score
+						<i ng-if="sortColumn === 'complaineScore' &amp;&amp; sortDirection === 'ASC'" class="fas fa-sort-up"></i>
+						<i ng-if="sortColumn === 'complaineScore' &amp;&amp; sortDirection === 'DESC'" class="fas fa-sort-down"></i>
+						<i ng-if="sortColumn !== 'complaineScore'" class="fas fa-sort text-muted"></i>
+					</span>
+				</th>
+				<th ng-repeat="col in allColumns" ng-if="visibleColumns[col.name]">
+					<span ng-click="col.sortable &amp;&amp; sortBy(col.name)"
+						ng-style="{'cursor': col.sortable ? 'pointer' : 'default'}">
+						{{col.label}}
+						<i ng-if="col.sortable &amp;&amp; sortColumn === col.name &amp;&amp; sortDirection === 'ASC'"
+							class="fas fa-sort-up"></i>
+						<i ng-if="col.sortable &amp;&amp; sortColumn === col.name &amp;&amp; sortDirection === 'DESC'"
+							class="fas fa-sort-down"></i>
+						<i ng-if="col.sortable &amp;&amp; sortColumn !== col.name" class="fas fa-sort text-muted"></i>
+					</span>
+				</th>
+				<th class="sticky-action-column">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+		<!-- role in roles.slice(startIndex, endIndex) -->
+			<tr ng-repeat="role in roles | filter:columnMatch">
+				<td><input type="checkbox" ng-model="role.selected" ng-change="updateSelection(role)"/></td>
+				<td class="role-flags-cell">
+				    <!-- Compliance Score Badge -->
+					  <span ng-if="role.complaineScore >= 0"
+					        class="compliance-score-badge"
+					        ng-style="{'background-color': getComplianceColor(role.complaineScore)}">
+					    {{ role.complaineScore }}%
+					  </span>
+				    <img ng-if="role.requestable" ng-src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-r.png" title="Requestable" width="16" height="16" />
+				    <img ng-if="role.phi === 'Yes'" ng-src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-p.png" title="Privileged" width="16" height="16" />
+				    <img ng-if="role.nac" ng-src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-n.png" title="NAC" width="16" height="16" />
+				    <img ng-if="role.accessPrivilege === 'Admin'" ng-src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-a.png" title="NAC" width="16" height="16" />
+				    
+				</td>
+				<td ng-repeat="col in allColumns" ng-if="visibleColumns[col.name]">
+					{{ getRoleValue(role, col.name) }}
+				</td>
+				<td class="sticky-action-column">
+					<i class="fas fa-pen edit-icon" ng-click="editRole(role)"></i>
+					<i class="fas fa-eye view-icon" ng-click="viewRole(role)"></i>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<div ng-if="roles.length == 0" class="no-roles">
+		<i class="fas fa-inbox"></i>
+		<p>{{noRolesFound}}</p>
+	</div>
+</div>
+
+<div class="pagination-bar">
+	<span>Rows per page:</span>
+	<select ng-model="pageSize" ng-change="changePageSize()">
+		<option ng-value="10">10</option>
+		<option ng-value="25">25</option>
+		<option ng-value="50">50</option>
+	</select>
+	<span>{{startIndex + 1}} - {{endIndex}} of {{totalCount}}</span>
+	<button ng-click="goToFirstPage()">&#171;</button>
+	<button ng-click="goToPreviousPage()">&#8249;</button>
+	<input type="number" ng-model="currentPageInput" ng-blur="validateAndGoToPage()"
+		ng-keydown="checkEnterKey($event, validateAndGoToPage)" placeholder="Page #" />
+
+
+	<button ng-click="goToNextPage()">&#8250;</button>
+	<button ng-click="goToLastPage()">&#187;</button>
+</div>
+
+<ui:include src="roleDetailsModal.xhtml" />
+<ui:include src="roleEditModal.xhtml" />
+</ui:composition>
+
+</html>

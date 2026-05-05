@@ -1,0 +1,160 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="CNC_RME_DownloadRolesRule">
+  <Description>This is an example rule for selecting who must supply a password to impersonate another identity.
+
+  </Description>
+  <Signature returnType="java.lang.Boolean">
+    <Inputs>
+      <Argument name="loggedInUser">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="roleIds">
+        <Description>
+          List of roleIds selected to download, this could be null
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+  import sailpoint.object.Capability;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Identity.CapabilityManager;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.Bundle;
+  import sailpoint.object.Filter;
+  import sailpoint.object.ObjectAttribute;
+  import sailpoint.object.ObjectConfig;
+  
+  import sailpoint.api.ObjectUtil;
+
+  import sailpoint.object.RoleTypeDefinition;
+
+  import sailpoint.tools.Util;
+  
+  String newLine = System.lineSeparator();
+
+
+  //String loggedInUser = "spadmin";
+  //List roleIds = null;
+
+
+
+  public void log(String message) {    
+    log.error(logPrefix+" "+message);
+  }
+
+
+  public String getRoleHeaders(List objectAttrs) {
+    String headerString = "";
+    for(ObjectAttribute attr :  Util.safeIterable(objectAttrs)) {
+      headerString += ","+attr.getName();
+    }
+    
+    return headerString;
+  }
+  
+  public String getRoleDataColumn(Bundle b,List extendedAttributes) {
+  	List data = new ArrayList();
+    
+    String roleName = b.getName();
+    
+    try {
+      data.add(roleName);
+      data.add(b.getDisplayName());
+      data.add(b.getType());
+      String ownerName = b.getOwner() != null ? b.getOwner().getName() : "";
+      data.add(ownerName);
+      data.add(b.getDescription("en_US"));
+      data.add(b.isDisabled());
+
+      for(ObjectAttribute attr :  Util.safeIterable(extendedAttributes)) {
+        if (b.getAttribute(attr.getName()) != null) {
+          data.add(b.getAttribute(attr.getName()));
+        }
+        else {
+          data.add("");
+        }
+      }
+      return Util.listToCsv(data);
+    }
+    catch(Exception e) {
+    	return "Exception while getRoleDataColumn for role "+roleName+" error is "+e.getMessage();
+    }
+    
+    
+    
+  }
+
+  log("loggedInUser "+loggedInUser);
+  log("roleIds "+roleIds);
+
+
+
+  List typeList = Util.csvToList("it,business");
+  Identity impersonatorIdentity = context.getObjectByName(Identity.class, loggedInUser);
+  if (impersonatorIdentity == null) {
+    log.error("Cannot find identity: " + loggedInUser);
+    return resutls;
+  }
+
+
+  if (Util.nullSafeSize(roleIds) == 0) {
+    roleIds = new ArrayList();
+    QueryOptions ops = new QueryOptions();
+    Filter f1 = Filter.in("type",typeList);
+
+    ops.addFilter(QueryOptions.getOwnerScopeFilterUsingSubqueries(context.getObjectByName(Identity.class, loggedInUser),"owner"));
+    ops.addFilter(f1);
+
+    List fetchedRoleIds = ObjectUtil.getObjectIds(context,Bundle.class,ops);
+    log("fetched roles ids "+fetchedRoleIds);
+
+    if (Util.nullSafeSize(fetchedRoleIds) > 0) {
+      roleIds.addAll(fetchedRoleIds);
+    }
+  }
+
+
+  ObjectConfig objConfig = context.getObjectByName(ObjectConfig.class, "Bundle");
+  RoleTypeDefinition itDef = objConfig.getRoleType("it");
+  RoleTypeDefinition buzDef = objConfig.getRoleType("business");
+
+  List itDisAllowedAttributes = itDef.getDisallowedAttributes();
+  List buzDisAllowedAttributes = buzDef.getDisallowedAttributes();	
+
+  List objectAttributes = objConfig.getObjectAttributes();
+
+  //List extendedAttributes = objConfig.getExtendedAttributeList();
+  String header = "Name,DisplayName,Type,Owner,Description,Disabled";
+  StringBuilder sb = new StringBuilder();
+  
+
+  header += getRoleHeaders(objectAttributes);
+  log("File header "+header);
+
+  sb.append(header);
+  
+ // return sb.toString();
+  
+  
+  for(String roleId : roleIds) {
+    Bundle b = context.getObjectById(Bundle.class,roleId);
+		sb.append(newLine);
+		sb.append(getRoleDataColumn(b,objectAttributes));
+
+  }
+
+
+
+  return sb.toString();			
+  </Source>
+</Rule>

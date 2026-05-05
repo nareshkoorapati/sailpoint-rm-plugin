@@ -1,0 +1,130 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="CNC_RME_UpdateRole">
+  <Description>This is an example rule for selecting who must supply a password to impersonate another identity.
+
+  </Description>
+  <Signature returnType="java.lang.Boolean">
+    <Inputs>
+      <Argument name="loggedInUser">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="newRoleMap">
+        <Description>
+          Updated Role Map 
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+  import sailpoint.object.Capability;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Identity.CapabilityManager;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.Bundle;
+  import sailpoint.object.Filter;
+  import sailpoint.object.ObjectAttribute;
+  import sailpoint.object.ObjectConfig;
+   import sailpoint.object.Attributes;
+  
+  import sailpoint.api.ObjectUtil;
+
+  import sailpoint.object.RoleTypeDefinition;
+
+  import sailpoint.tools.Util;
+  
+  
+  String logPrefix = "CNC_RME_UpdateRole";
+
+  public void log(String message) {    
+    log.error(logPrefix+" "+message);
+  }
+
+  log("new role map "+newRoleMap);
+
+  Map returnMap = new HashMap();
+  boolean isRoleUpdated = false;
+  
+  Attributes attrs = new Attributes();
+  
+  
+  String roleId = newRoleMap.get("id");
+  Bundle b = context.getObjectById(Bundle.class,roleId);
+  
+  if (b==null) {
+  	throw new GeneralException ("Role not found with id "+roleId);
+  }
+  
+  //display Name
+  String displayName = newRoleMap.get("displayName");
+  
+  if (!Util.nullSafeEq(b.getDisplayName(),displayName)) {
+    log.error("updating displayname");
+    attrs.put("old_displayName",b.getDisplayName());
+    attrs.put("new_displayName",displayName);
+  	isRoleUpdated = true;
+    b.setDisplayName(displayName);
+    
+  }
+  
+  String description = newRoleMap.get("description");
+  
+  if (!Util.nullSafeEq(b.getDescription("en_US"),description)) {
+    log.error("updating description");
+  	attrs.put("old_description",b.getDescription("en_US"));
+    attrs.put("new_description",description);
+  	isRoleUpdated = true;
+    b.addDescription("en_US",description);
+  }
+  
+  
+  Map extendedAttrs = b.getExtendedAttributes();
+  log.error("extendedAttrs "+extendedAttrs);
+  List updatedExtAttrs = newRoleMap.get("extendedAttributes");
+  
+  for(Map extMap : updatedExtAttrs) {
+    
+  	String attrName = extMap.get("name");
+    log.error("updating extended attribute "+attrName);
+    Object value = extMap.get("value");
+    log.error("value "+value);
+    Object oldValue = extendedAttrs != null ? extendedAttrs.get(attrName) : null;
+    
+    log.error("oldValue "+oldValue);
+    
+    if (!Util.nullSafeEq(value,oldValue,true)) {
+    	attrs.put("old_"+attrName,oldValue);      
+    	attrs.put("new_"+attrName,value);      
+  		isRoleUpdated = true;
+      b.setAttribute(attrName,value);
+    }
+    
+  }
+  
+  if (isRoleUpdated) {
+  	context.saveObject(b);
+    context.commitTransaction();
+    context.decache();
+    returnMap.put("status","Success");
+  }
+  else {
+  	returnMap.put("status","Warn");
+    returnMap.put("message","No Changes found to update");
+    
+  }
+  
+  return returnMap;
+  
+  
+  
+  
+  </Source>
+</Rule>

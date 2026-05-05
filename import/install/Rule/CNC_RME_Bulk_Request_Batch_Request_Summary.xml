@@ -1,0 +1,194 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule  language="beanshell" name="RME_Bulk_Request_Batch_Request_Summary">
+  <Description>This rule will return bulk upload summary data for csv file
+
+  </Description>
+  <Signature returnType="string">
+    <Inputs>
+      <Argument name="roleId">
+        <Description>
+          Role Id that is involved in the batch request, this could be null, if no role found with given role name or creating a new role
+        </Description>
+      </Argument>
+      <Argument name="roleName">
+        <Description>
+          Role Name that is involved in the batch request.
+        </Description>
+      </Argument>
+      <Argument name="header">
+        <Description>
+          Batch Request Header
+        </Description>
+      </Argument>
+      <Argument name="errorMessage">
+        <Description>
+          Error Message if any
+        </Description>
+      </Argument>
+      <Argument name="record">
+        <Description>
+          the batch record, whole line of the role that is being created or updated
+        </Description>
+      </Argument>
+      <Argument name="status">
+        <Description>
+          Status of the role create/update request
+          
+        </Description>
+      </Argument>
+      <Argument name="differences">
+        <Description>
+          role differences          
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+    </Inputs>
+    <Returns>
+      <Argument name="file data">
+        <Description>
+          For a role with old and new attribute values
+        </Description>
+      </Argument>
+    </Returns>
+  </Signature>
+  <Source>
+  import sailpoint.tools.Util;
+import sailpoint.api.RoleLifecycler;
+import sailpoint.object.BundleDifference;
+
+import sailpoint.tools.xml.XMLObjectFactory;
+import sailpoint.tools.xml.XMLReferenceResolver;
+import sailpoint.tools.xml.AbstractXmlObject;
+import sailpoint.object.Difference;
+import sailpoint.object.ObjectConfig;
+import sailpoint.object.ObjectAttribute;
+import sailpoint.tools.RFC4180LineIterator;
+import sailpoint.tools.RFC4180LineParser;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
+import java.util.LinkedList;
+
+
+
+  //1. Failed - Failed to update/create role
+  //2. Updated - Updated 
+  //3. Created - If role created
+  //4. Pending - 
+  //5. Skipped - If no change
+  //6. Invalid - If any information is missing or not valid
+  //7. Success - Validation Success
+
+  XMLObjectFactory factory = XMLObjectFactory.getInstance();
+  String newLine = System.lineSeparator();
+
+  StringBuilder sb = new StringBuilder();
+
+  try {
+    boolean differencesFound = false;
+    Map bundleDifferencesMap = new HashMap();
+
+    if (differences != null &amp;&amp; !differences.isEmpty()) {
+      
+      BundleDifference bundleDifferences = (BundleDifference) factory.parseXml(context, differences, false);
+      differencesFound = true;
+      for(Difference diff : bundleDifferences.getAttributeDifferences()) {        
+        bundleDifferencesMap.put(diff.getAttribute(), diff);
+      }
+    }
+
+
+    String dlm = ",";
+    RFC4180LineParser parser = new RFC4180LineParser(dlm);
+    LinkedList headerList = new LinkedList();
+    headerList.addAll(parser.parseLine(header));
+
+    
+    HashMap roleMap = new HashMap();
+    List tokens = parser.parseLine(record);
+    for(int i=0;i&lt;tokens.size();i++) {
+      roleMap.put(headerList.get(i),tokens.get(i));
+    }
+
+    ObjectConfig objConfig = context.getObjectByName(ObjectConfig.class, "Bundle");
+    List objectAttributes = objConfig.getObjectAttributes();
+    Map attributeMap = new HashMap();
+    for(ObjectAttribute attr : objectAttributes) {
+      attributeMap.put(attr.getName(), attr.getDisplayableName());
+    }
+
+    String roleName = roleMap.get("Role Name");
+    sb.append("Role Name,Attribute,Old Value,New Value");
+    sb.append(newLine);
+    
+    roleMap.remove("Role Name");
+
+    for(String key : roleMap.keySet()) {
+      sb.append(roleName);
+      sb.append(dlm);
+      sb.append(key);
+      //sb.append(dlm);
+      //sb.append(roleMap.get(key)); //old value from csv
+      String attributeDisplayName = attributeMap.containsKey(key) ? attributeMap.get(key).toString() : key;
+      //Special cases
+      if (key.equals("Display Name")) {
+        attributeDisplayName = "label_display_name";
+      } else if (key.equals("Description")) {
+        attributeDisplayName = "label_display_name";
+      } else if (key.equals("Description")) {
+        attributeDisplayName = "label_description";
+      } else if (key.equals("Owner")) {
+        attributeDisplayName = "label_owner";
+      } else if (key.equals("Disabled")) {
+        attributeDisplayName = "label_disabled";
+      }
+      
+      if (differencesFound &amp;&amp; bundleDifferencesMap.containsKey(key) || bundleDifferencesMap.containsKey(attributeDisplayName)) {
+        Difference diff = (Difference) bundleDifferencesMap.get(key) != null ? (Difference) bundleDifferencesMap.get(key) : (Difference) bundleDifferencesMap.get(attributeDisplayName);
+        
+        //String oldValue = diff.getOldValue() != null ? diff.getOldValue().toString() : roleMap.get(key)";
+       	//String newValue = diff.getNewValue() != null ? diff.getNewValue().toString() : roleMap.get(key);
+        
+        sb.append(dlm);
+        sb.append(diff.getOldValue() != null ? diff.getOldValue().toString() : roleMap.get(key));
+        
+        sb.append(dlm);
+        sb.append(diff.getNewValue() != null ? diff.getNewValue().toString() : roleMap.get(key));
+      }
+      else {
+      	//no difference found
+        sb.append(dlm);
+        sb.append(roleMap.get(key));
+        
+        sb.append(dlm);
+        sb.append(roleMap.get(key));
+      }
+      sb.append(newLine);
+    }
+
+    //status and error message
+    sb.append(roleName+dlm+"Status"+dlm+dlm+status+newLine);
+    sb.append(roleName+dlm+"Error Message"+dlm+dlm+errorMessage+newLine);
+
+
+
+
+  }
+  catch(Exception e) {
+    log.error("Exception in CNC_RME_Bulk_Request_Batch_Request_Summary "+e);
+   // returnMap.put("status","Failed");
+    //returnMap.put("errorMessage",e.getMessage());
+  }
+  finally {
+    return sb.toString();
+  }
+
+
+
+  </Source>
+</Rule>

@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+<SPRight displayName="RoleManagementRight" name="RoleManagementRight"/>
+<SPRight displayName="RoleManagementAdminRight" name="RoleManagementAdminRight"/>
+<Capability displayName="RME Administrator" name="RMEAdministrator">
+  <Description>capability_desc_role_administrator</Description>
+  
+  <RightRefs>
+    <Reference class="sailpoint.object.SPRight"  name="RoleManagementRight"/>
+    <Reference class="sailpoint.object.SPRight" name="RoleManagementAdminRight"/>
+    
+  </RightRefs>
+</Capability>
+<Capability displayName="RME EndUser" name="RMEEndUser">
+  <Description>capability_desc_role_administrator</Description>
+  
+  <RightRefs>
+    <Reference class="sailpoint.object.SPRight"  name="RoleManagementRight"/>    
+  </RightRefs>
+</Capability>
+</sailpoint>

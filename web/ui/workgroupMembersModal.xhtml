@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:ng="http://angularjs.org">
+
+<ui:composition>
+
+<div class="custom-modal-backdrop" ng-show="showWgMembersModal" ng-cloak="true">
+	<div class="custom-modal-box" style="max-width: 840px;">
+		<div class="custom-modal-header">
+			<i class="fas fa-users"></i>
+			<h4>Members: {{ wgMembersTitle }}</h4>
+			<span class="close-icon" ng-click="closeWgMembersModal()">
+				<i class="fa-solid fa-xmark"></i>
+			</span>
+		</div>
+		<div class="custom-modal-tabs">
+			<div ng-class="{ 'active-tab': wgMembersActiveTab === 'members' }"
+				ng-click="setWgMembersTab('members')">Workgroup Members</div>
+			<div ng-class="{ 'active-tab': wgMembersActiveTab === 'roles' }"
+				ng-click="setWgMembersTab('roles')">Owned Roles</div>
+		</div>
+		<div class="custom-modal-body">
+			<div ng-if="wgMembersActiveTab === 'members' &amp;&amp; wgMembersLoading" class="wg-members-loading">
+				<i class="fas fa-spinner fa-spin"></i> Loading…
+			</div>
+
+			<div class="custom-modal-section" ng-if="wgMembersActiveTab === 'members' &amp;&amp; !wgMembersLoading">
+				<div class="modern-search-bar">
+					<i class="fas fa-search search-icon"></i>
+					<input type="text"
+						ng-model="wgMemberSearch"
+						ng-change="onWgMemberSearchChange()"
+						placeholder="Search group members..."
+						ng-disabled="wgMembers.length === 0" />
+					<i class="fas fa-times clear-icon"
+						ng-if="wgMemberSearch"
+						ng-click="wgMemberSearch = ''; onWgMemberSearchChange()"></i>
+				</div>
+
+				<div class="modern-table-wrapper" ng-if="wgMembers.length > 0">
+					<table class="modern-table" ng-if="filteredWgMembers().length > 0">
+						<thead>
+							<tr>
+								<th ng-repeat="col in wgMemberHeaders">{{ col.label }}</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr ng-repeat="member in paginatedWgMembers()">
+								<td ng-repeat="col in wgMemberHeaders">{{ member[col.key] }}</td>
+							</tr>
+						</tbody>
+					</table>
+					<div ng-if="filteredWgMembers().length === 0" class="no-roles" style="padding: 16px; text-align: center;">
+						<p>No members match your search.</p>
+					</div>
+				</div>
+
+				<div ng-if="wgMembers.length === 0" class="no-roles" style="padding: 16px; text-align: center;">
+					<p>No members returned for this workgroup.</p>
+				</div>
+
+				<div class="pagination-bar" ng-if="wgMembers.length > 0">
+					<span>Rows per page:</span>
+					<select ng-model="wgMemberPageSize" ng-change="onWgMemberPageSizeChange()">
+						<option ng-value="10">10</option>
+						<option ng-value="25">25</option>
+						<option ng-value="50">50</option>
+					</select>
+					<div class="record-count"
+						style="margin-bottom: 8px; margin-right: auto;">Showing
+						{{ getWgMemberRecordRange().start }} -
+						{{ getWgMemberRecordRange().end }} of
+						{{ getWgMemberRecordRange().total }}</div>
+					<button type="button" ng-click="changeWgMemberPage(-1)"
+						ng-disabled="wgMemberCurrentPage === 1">&#8249;</button>
+					<span>Page {{ wgMemberCurrentPage }} of {{ wgMemberTotalPages }}</span>
+					<button type="button" ng-click="changeWgMemberPage(1)"
+						ng-disabled="wgMemberCurrentPage === wgMemberTotalPages">&#8250;</button>
+				</div>
+			</div>
+
+			<div ng-if="wgMembersActiveTab === 'roles' &amp;&amp; wgOwnerRolesLoading" class="wg-members-loading">
+				<i class="fas fa-spinner fa-spin"></i> Loading…
+			</div>
+
+			<div class="custom-modal-section" ng-if="wgMembersActiveTab === 'roles' &amp;&amp; !wgOwnerRolesLoading">
+				<div class="modern-search-bar">
+					<i class="fas fa-search search-icon"></i>
+					<input type="text"
+						ng-model="wgOwnerRoleSearch"
+						ng-change="onWgOwnerRoleSearchChange()"
+						placeholder="Search owned roles..."
+						ng-disabled="wgOwnerRoles.length === 0" />
+					<i class="fas fa-times clear-icon"
+						ng-if="wgOwnerRoleSearch"
+						ng-click="wgOwnerRoleSearch = ''; onWgOwnerRoleSearchChange()"></i>
+				</div>
+
+				<div class="modern-table-wrapper" ng-if="wgOwnerRoles.length > 0">
+					<table class="modern-table" ng-if="filteredWgOwnerRoles().length > 0">
+						<thead>
+							<tr>
+								<th ng-repeat="col in wgOwnerRoleHeaders">{{ col.label }}</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr ng-repeat="role in paginatedWgOwnerRoles()">
+								<td ng-repeat="col in wgOwnerRoleHeaders">{{ role[col.key] }}</td>
+							</tr>
+						</tbody>
+					</table>
+					<div ng-if="filteredWgOwnerRoles().length === 0" class="no-roles" style="padding: 16px; text-align: center;">
+						<p>No roles match your search.</p>
+					</div>
+				</div>
+
+				<div ng-if="wgOwnerRoles.length === 0" class="no-roles" style="padding: 16px; text-align: center;">
+					<p>No roles are owned by this workgroup.</p>
+				</div>
+
+				<div class="pagination-bar" ng-if="wgOwnerRoles.length > 0">
+					<span>Rows per page:</span>
+					<select ng-model="wgOwnerRolePageSize" ng-change="onWgOwnerRolePageSizeChange()">
+						<option ng-value="10">10</option>
+						<option ng-value="25">25</option>
+						<option ng-value="50">50</option>
+					</select>
+					<div class="record-count"
+						style="margin-bottom: 8px; margin-right: auto;">Showing
+						{{ getWgOwnerRoleRecordRange().start }} -
+						{{ getWgOwnerRoleRecordRange().end }} of
+						{{ getWgOwnerRoleRecordRange().total }}</div>
+					<button type="button" ng-click="changeWgOwnerRolePage(-1)"
+						ng-disabled="wgOwnerRoleCurrentPage === 1">&#8249;</button>
+					<span>Page {{ wgOwnerRoleCurrentPage }} of {{ wgOwnerRoleTotalPages }}</span>
+					<button type="button" ng-click="changeWgOwnerRolePage(1)"
+						ng-disabled="wgOwnerRoleCurrentPage === wgOwnerRoleTotalPages">&#8250;</button>
+				</div>
+			</div>
+		</div>
+		<div class="custom-modal-footer" style="text-align: right;">
+			<button type="button" class="mat-button-outlined" ng-click="closeWgMembersModal()">Close</button>
+		</div>
+	</div>
+</div>
+
+</ui:composition>
+</html>

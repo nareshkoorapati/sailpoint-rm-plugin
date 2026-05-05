@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <TaskDefinition name="RME Batch Request" executor="sailpoint.plugin.rolemanagement.task.RMEBatchRequestExecutor" resultAction="Rename" subType="task_item_type_generic" type="Generic">
+    <Description>
+      Task will hit the rest services exposed by TruOps to insert in to the plugin database
+    </Description>
+    <Attributes>
+      <Map>
+        <entry key="pluginName" value="rolemanagement"/>
+        <entry key="perItemRuleName" value="RME Import Rule"/>
+        <entry key="approvalRequiredRule" value="RME Approval Required Rule"/>
+        <entry key="notificationRule" value="RME Notification Rule"/>
+      </Map>
+    </Attributes>    
+    <Signature>
+	  <Inputs>
+      <Argument helpKey="help_task_run_rule_rule" name="perItemRuleName" required="true" type="Rule">
+        <Prompt>label_rule</Prompt>
+      </Argument>
+      <Argument helpKey="help_task_run_rule_rule" name="approvalRequiredRule" required="true" type="Rule">
+        <Prompt>label_rule</Prompt>
+      </Argument>
+      <Argument helpKey="help_task_run_rule_rule" name="notificationRule" required="true" type="Rule">
+        <Prompt>Notification Rule</Prompt>
+      </Argument>
+      
+    </Inputs>
+      <Returns>
+        <Argument name="number of rows inserted" type="int">
+          <Prompt>Total number of rows inserted</Prompt>
+        </Argument>
+      </Returns>
+    </Signature>
+  </TaskDefinition>  
+</sailpoint>
+

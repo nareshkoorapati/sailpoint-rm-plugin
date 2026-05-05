@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Custom PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Custom name="Role Management Settings">
+  <Attributes>
+    <Map>
+    <entry key="roleDownloadTimeOutInMilliSeconds">
+        <value>
+          <Integer>60000</Integer>
+        </value>
+      </entry>
+      <entry key="dashboardRule" value="CNC_RME_DashboardRule"/>
+      <entry key="downloadRolesRule" value="CNC_RME_DownloadRolesRule"/>
+      <entry key="updateRoleRule" value="CNC_RME_UpdateRole"/>
+      <entry key="getWorkgroupMembersRule" value="CNC_RME_GetWorkgroupMembers"/>
+      <entry key="bulkUploadTemplateDownloadRule" value="CNC_RME_BulkUpload_Template_Download"/>
+      <entry key="bulkRequestConfigRule" value="CNC_RME_Bulk_Request_Config_Rule"/>
+      <entry key="downloadBatchRequestSummary" value="CNC_RME_Bulk_Request_Batch_Request_Summary"/>
+      <entry key="nonEditableFields">
+      	<value>
+      		<List>
+      			<String>secondLevelApprover</String>
+      			<String>certifiable</String>
+      			<String>approvalLevels</String>      			
+      		</List>
+      	</value>
+      </entry>
+      
+      <entry key="config">
+      	<value>
+      		<Map>
+      			<entry key="debugEnabled">
+			      	<value>
+			      		<Boolean>true</Boolean>
+			      	</value>
+			      </entry>
+			      <entry key="helpUrl" value="https://google.com"/>
+      		</Map>
+      	</value>
+      </entry>
+    </Map>
+  </Attributes>
+</Custom>
