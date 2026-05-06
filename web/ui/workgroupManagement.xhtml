@@ -7,9 +7,14 @@
 
 	<!-- One outer ng-controller only; parent page already has ng-app="RoleApp". Nested ng-app breaks controller lookup. -->
 	<div ng-controller="WorkgroupManagementController">
-	<div class="wg-page-header">
-		<h2 class="wg-page-title">Workgroup Management</h2>
-		<p class="wg-page-subtitle">Search workgroups and view their members.</p>
+	<div class="wg-page-header wg-page-header-row">
+		<div class="wg-page-header-text">
+			<h2 class="wg-page-title">Workgroup Management</h2>
+			<p class="wg-page-subtitle">Search workgroups and view their members.</p>
+		</div>
+		<button type="button" class="wg-btn wg-btn-primary" ng-click="openWgCreateModal()">
+			<i class="fas fa-plus"></i> Create workgroup
+		</button>
 	</div>
 
 	<div class="wg-dashboard-loading" ng-if="wgStatsLoading">
@@ -19,48 +24,38 @@
 
 	<div class="wg-dashboard-section" ng-if="!wgStatsLoading">
 		<h3 class="wg-dashboard-heading">Overview</h3>
-		<div class="card-container wg-dashboard-cards">
-			<div class="dashboard-card wg-stat-card">
-				<div class="card-title">
-					<span class="card-title">Total workgroups</span>
-					<i class="fas fa-users wg-stat-icon"></i>
+		<div class="rm-dashboard-metrics wg-dashboard-metrics">
+			<div class="rm-metric-card wg-stat-card">
+				<div class="rm-metric-icon rm-metric-icon--cyan"><i class="fas fa-users" aria-hidden="true"></i></div>
+				<div class="rm-metric-body">
+					<span class="rm-metric-label">Total workgroups</span>
+					<span class="rm-metric-value">{{ wgStats.totalWorkgroups | number }}</span>
+					<span class="rm-metric-foot">All workgroup identities</span>
 				</div>
-				<div class="card-count">{{ wgStats.totalWorkgroups | number }}</div>
 			</div>
-			<div class="dashboard-card wg-stat-card">
-				<div class="card-title">
-					<span class="card-title">Own ≥1 role (as owner)</span>
-					<i class="fas fa-user-shield wg-stat-icon"></i>
+			<div class="rm-metric-card wg-stat-card">
+				<div class="rm-metric-icon rm-metric-icon--indigo"><i class="fas fa-user-shield" aria-hidden="true"></i></div>
+				<div class="rm-metric-body">
+					<span class="rm-metric-label">Roles owned by workgroups</span>
+					<span class="rm-metric-value">{{ wgStats.rolesOwnedByWorkgroups | number }}</span>
+					<span class="rm-metric-foot">{{ wgRolesOwnedPercent() }}% of all roles</span>
 				</div>
-				<div class="card-count">{{ wgStats.workgroupsOwningRoles | number }}</div>
 			</div>
-			<div class="dashboard-card wg-stat-card">
-				<div class="card-title">
-					<span class="card-title">Not a role owner</span>
-					<i class="fas fa-user-slash wg-stat-icon"></i>
+			<div class="rm-metric-card wg-stat-card">
+				<div class="rm-metric-icon rm-metric-icon--slate"><i class="fas fa-user-slash" aria-hidden="true"></i></div>
+				<div class="rm-metric-body">
+					<span class="rm-metric-label">Single-member workgroups</span>
+					<span class="rm-metric-value">{{ wgStats.singleMemberWorkgroups | number }}</span>
+					<span class="rm-metric-foot">{{ wgSingleMemberPercent() }}% of workgroups</span>
 				</div>
-				<div class="card-count">{{ wgStats.workgroupsNotOwningRoles | number }}</div>
 			</div>
-			<div class="dashboard-card wg-stat-card">
-				<div class="card-title">
-					<span class="card-title">Active workgroups</span>
-					<i class="fas fa-circle-check wg-stat-icon"></i>
+			<div class="rm-metric-card wg-stat-card">
+				<div class="rm-metric-icon rm-metric-icon--emerald"><i class="fas fa-circle-check" aria-hidden="true"></i></div>
+				<div class="rm-metric-body">
+					<span class="rm-metric-label">Workgroups with termed members</span>
+					<span class="rm-metric-value">{{ wgStats.workgroupsWithTermedMembers | number }}</span>
+					<span class="rm-metric-foot">{{ wgTermedPercent() }}% of workgroups</span>
 				</div>
-				<div class="card-count">{{ wgStats.activeWorkgroups | number }}</div>
-			</div>
-			<div class="dashboard-card wg-stat-card">
-				<div class="card-title">
-					<span class="card-title">Disabled workgroups</span>
-					<i class="fas fa-ban wg-stat-icon"></i>
-				</div>
-				<div class="card-count">{{ wgStats.disabledWorkgroups | number }}</div>
-			</div>
-			<div class="dashboard-card wg-stat-card">
-				<div class="card-title">
-					<span class="card-title">Roles with WG owner</span>
-					<i class="fas fa-id-badge wg-stat-icon"></i>
-				</div>
-				<div class="card-count">{{ wgStats.rolesWithWorkgroupOwner | number }}</div>
 			</div>
 		</div>
 
@@ -69,32 +64,48 @@
 			<div class="wg-chart-cell">
 				<h4 class="wg-chart-title">Role ownership</h4>
 				<p class="wg-chart-hint">Share of workgroups that own at least one role</p>
-				<div class="wg-donut-wrap">
-					<div class="wg-donut" ng-style="wgOwnershipDonutStyle()"></div>
-					<div class="wg-donut-center">
-						<strong>{{ wgStats.workgroupsOwningRoles | number }}</strong>
-						<span>of {{ wgStats.totalWorkgroups | number }}</span>
+				<div class="wg-chart-body">
+					<div class="wg-donut-wrap wg-donut-wrap--sm">
+						<div class="wg-donut" ng-style="wgOwnershipDonutStyle()"></div>
+						<div class="wg-donut-center">
+							<strong>{{ wgStats.workgroupsOwningRoles | number }}</strong>
+							<span>of {{ wgStats.totalWorkgroups | number }}</span>
+						</div>
 					</div>
+					<ul class="wg-chart-legend wg-chart-legend--side">
+						<li class="wg-legend-row">
+							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-own"></span> Owns ≥1 role</span>
+							<span class="wg-legend-meta">({{ wgOwnershipPercent() }}%) <strong>{{ wgStats.workgroupsOwningRoles | number }}</strong></span>
+						</li>
+						<li class="wg-legend-row">
+							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-none"></span> Not an owner</span>
+							<span class="wg-legend-meta">({{ wgNotOwnerPercent() }}%) <strong>{{ wgStats.workgroupsNotOwningRoles | number }}</strong></span>
+						</li>
+					</ul>
 				</div>
-				<ul class="wg-chart-legend">
-					<li><span class="wg-leg-swatch wg-sw-own"></span> Owns ≥1 role ({{ wgStats.workgroupsOwningRoles | number }})</li>
-					<li><span class="wg-leg-swatch wg-sw-none"></span> Not an owner ({{ wgStats.workgroupsNotOwningRoles | number }})</li>
-				</ul>
 			</div>
 			<div class="wg-chart-cell">
 				<h4 class="wg-chart-title">Activation</h4>
 				<p class="wg-chart-hint">Active vs disabled workgroup identities</p>
-				<div class="wg-donut-wrap">
-					<div class="wg-donut" ng-style="wgStatusDonutStyle()"></div>
-					<div class="wg-donut-center">
-						<strong>{{ wgStats.activeWorkgroups | number }}</strong>
-						<span>active</span>
+				<div class="wg-chart-body">
+					<div class="wg-donut-wrap wg-donut-wrap--sm">
+						<div class="wg-donut" ng-style="wgStatusDonutStyle()"></div>
+						<div class="wg-donut-center">
+							<strong>{{ wgStats.activeWorkgroups | number }}</strong>
+							<span>active</span>
+						</div>
 					</div>
+					<ul class="wg-chart-legend wg-chart-legend--side">
+						<li class="wg-legend-row">
+							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-active"></span> Active</span>
+							<span class="wg-legend-meta">({{ wgActivePercent() }}%) <strong>{{ wgStats.activeWorkgroups | number }}</strong></span>
+						</li>
+						<li class="wg-legend-row">
+							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-disabled"></span> Disabled</span>
+							<span class="wg-legend-meta">({{ wgDisabledPercent() }}%) <strong>{{ wgStats.disabledWorkgroups | number }}</strong></span>
+						</li>
+					</ul>
 				</div>
-				<ul class="wg-chart-legend">
-					<li><span class="wg-leg-swatch wg-sw-active"></span> Active ({{ wgStats.activeWorkgroups | number }})</li>
-					<li><span class="wg-leg-swatch wg-sw-disabled"></span> Disabled ({{ wgStats.disabledWorkgroups | number }})</li>
-				</ul>
 			</div>
 		</div>
 
@@ -182,6 +193,7 @@
 	</div>
 
 	<ui:include src="workgroupMembersModal.xhtml" />
+	<ui:include src="workgroupCreateModal.xhtml" />
 	</div>
 
 </ui:composition>

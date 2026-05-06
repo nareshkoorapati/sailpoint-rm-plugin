@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:ng="http://angularjs.org">
+
+<ui:composition>
+
+<div class="custom-modal-backdrop" ng-show="showWgCreateModal" ng-cloak="true">
+	<div class="custom-modal-box wg-create-modal">
+		<div class="custom-modal-header">
+			<i class="fas fa-users-gear"></i>
+			<h4>Create workgroup</h4>
+			<span class="close-icon" ng-click="closeWgCreateModal()">
+				<i class="fa-solid fa-xmark"></i>
+			</span>
+		</div>
+		<div class="custom-modal-body wg-create-body">
+			<p class="wg-form-required-note"><span class="wg-req">*</span> Indicates a required field.</p>
+
+			<div class="wg-form-grid">
+				<div class="wg-field wg-field-full">
+					<label class="wg-label" for="wgCreateName">Name <span class="wg-req">*</span></label>
+					<input id="wgCreateName" type="text" class="wg-input" ng-model="wgCreate.name"
+						placeholder="Unique workgroup name" autocomplete="off" />
+				</div>
+
+				<div class="wg-field wg-field-full">
+					<label class="wg-label" for="wgCreateOwner">Owner</label>
+					<div class="wg-typeahead">
+						<input id="wgCreateOwner" type="text" class="wg-input" ng-model="wgOwnerSearch"
+							placeholder="Search user by name..."
+							ng-change="wgSuggestOwner()"
+							ng-model-options="{ debounce: 300 }"
+							autocomplete="off" />
+						<ul class="wg-typeahead-list" ng-if="wgOwnerHits.length > 0">
+							<li ng-repeat="h in wgOwnerHits" ng-click="selectWgOwner(h)">
+								<strong>{{ h.displayName || h.name }}</strong>
+								<span class="wg-hit-sub">{{ h.name }}</span>
+							</li>
+						</ul>
+					</div>
+					<p class="wg-field-hint" ng-if="wgCreate.ownerLabel">{{ wgCreate.ownerLabel }}</p>
+				</div>
+
+				<div class="wg-field wg-field-full">
+					<label class="wg-label" for="wgCreateDesc">Description</label>
+					<textarea id="wgCreateDesc" class="wg-textarea" rows="3" ng-model="wgCreate.description"
+						placeholder="Optional description"></textarea>
+				</div>
+
+				<div class="wg-field">
+					<label class="wg-label" for="wgCreateEmail">Group email</label>
+					<input id="wgCreateEmail" type="email" class="wg-input" ng-model="wgCreate.email"
+						placeholder="distribution-list@company.com" autocomplete="off" />
+				</div>
+
+				<div class="wg-field">
+					<label class="wg-label" for="wgCreateNotify">Notification setting</label>
+					<select id="wgCreateNotify" class="wg-select" ng-model="wgCreate.notificationSetting"
+						ng-options="n.value as n.label for n in wgNotificationOptions"></select>
+				</div>
+			</div>
+
+			<h5 class="wg-members-section-title">Members</h5>
+			<div class="wg-members-toolbar">
+				<div class="wg-typeahead wg-typeahead-grow">
+					<input type="text" class="wg-input" ng-model="wgMemberPickSearch"
+						placeholder="Search identities to add..."
+						ng-change="wgSuggestMembers()"
+						ng-model-options="{ debounce: 300 }"
+						autocomplete="off" />
+					<ul class="wg-typeahead-list" ng-if="wgMemberHits.length > 0">
+						<li ng-repeat="m in wgMemberHits" ng-click="addWgPendingMember(m)">
+							<strong>{{ m.displayName || m.name }}</strong>
+							<span class="wg-hit-sub">{{ m.name }}</span>
+						</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="wg-pending-table-wrap">
+				<table class="wg-pending-table" ng-if="wgPendingMembers.length > 0">
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>First name</th>
+							<th>Last name</th>
+							<th class="wg-col-actions"></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr ng-repeat="pm in wgPendingMembers track by pm.id">
+							<td>{{ pm.name }}</td>
+							<td>{{ pm.firstname }}</td>
+							<td>{{ pm.lastname }}</td>
+							<td class="wg-col-actions">
+								<button type="button" class="wg-btn-link" ng-click="removeWgPendingMember(pm.id)">Remove</button>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p class="wg-empty-hint" ng-if="wgPendingMembers.length === 0">No members added yet. Search above to add identities.</p>
+			</div>
+		</div>
+		<div class="custom-modal-footer wg-create-footer">
+			<button type="button" class="wg-btn wg-btn-secondary" ng-click="closeWgCreateModal()" ng-disabled="wgCreateSaving">Cancel</button>
+			<button type="button" class="wg-btn wg-btn-primary" ng-click="submitCreateWorkgroup()" ng-disabled="wgCreateSaving || !wgCreate.name">
+				<span ng-if="wgCreateSaving"><i class="fas fa-spinner fa-spin"></i> Saving…</span>
+				<span ng-if="!wgCreateSaving">Save</span>
+			</button>
+		</div>
+	</div>
+</div>
+
+</ui:composition>
+</html>

@@ -91,6 +91,15 @@ public class RoleManagementResource extends BasePluginResource {
 		Map<String, Object> workgroupMembers = getRoleService().getWorkGroupMembers(getLoggedInUserName(),groupId);
 		return Response.ok(workgroupMembers).build();
 	}
+	
+	@GET
+	@Deferred
+	@Path("/workgroup/{groupId}/roles")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getRolesOwnedByWorkgroup(@PathParam("groupId") String groupId) throws GeneralException {
+		Map<String, Object> roles = getRoleService().getRolesOwnedByWorkgroup(groupId);
+		return Response.ok(roles).build();
+	}
 
 	@GET
 	@Deferred
@@ -112,6 +121,29 @@ public class RoleManagementResource extends BasePluginResource {
 	public Response getWorkgroupDashboardStats() throws GeneralException {
 		Map<String, Object> stats = getIdentityService().getWorkgroupDashboardStats();
 		return Response.ok(stats).build();
+	}
+
+	@POST
+	@Deferred
+	@Path("/workgroups")
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response createWorkgroup(Map<String, Object> body) throws GeneralException {
+		Map<String, Object> result = getIdentityService().createWorkgroup(body);
+		if (Boolean.FALSE.equals(result.get("success"))) {
+			return Response.status(Response.Status.BAD_REQUEST).entity(result).build();
+		}
+		return Response.ok(result).build();
+	}
+
+	@GET
+	@Deferred
+	@Path("/identities/suggest")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response suggestIdentities(@QueryParam("q") String q,
+			@QueryParam("limit") @DefaultValue("25") int limit) throws GeneralException {
+		List<Map<String, Object>> rows = getIdentityService().suggestIdentities(q, limit);
+		return Response.ok(rows).build();
 	}
 
 	@GET

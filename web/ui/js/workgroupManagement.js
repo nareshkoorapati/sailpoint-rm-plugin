@@ -49,6 +49,28 @@
 			$scope.wgOwnerRoleCurrentPage = 1;
 			$scope.wgOwnerRoleTotalPages = 1;
 
+			$scope.showWgCreateModal = false;
+			$scope.wgCreateSaving = false;
+			$scope.wgCreate = {
+				name: '',
+				description: '',
+				email: '',
+				ownerId: null,
+				ownerLabel: '',
+				notificationSetting: 'membersAndEmail'
+			};
+			$scope.wgNotificationOptions = [
+				{ value: 'membersAndEmail', label: 'Notify members and group email' },
+				{ value: 'membersOnly', label: 'Notify members only' },
+				{ value: 'emailOnly', label: 'Notify group email only' },
+				{ value: 'none', label: 'None' }
+			];
+			$scope.wgOwnerSearch = '';
+			$scope.wgOwnerHits = [];
+			$scope.wgMemberPickSearch = '';
+			$scope.wgMemberHits = [];
+			$scope.wgPendingMembers = [];
+
 			$scope.wgStats = {};
 			$scope.wgStatsLoading = true;
 
@@ -118,6 +140,52 @@
 				return Math.round((n / t) * 1000) / 10;
 			};
 
+			/** % of all Bundle roles that list a workgroup as owner (Overview tile 2). */
+			$scope.wgRolesOwnedPercent = function () {
+				var tr = $scope.wgStats.totalRoles || 0;
+				var ro = $scope.wgStats.rolesOwnedByWorkgroups || 0;
+				if (tr === 0) {
+					return 0;
+				}
+				return Math.round((ro / tr) * 1000) / 10;
+			};
+
+			$scope.wgSingleMemberPercent = function () {
+				var t = $scope.wgStats.totalWorkgroups || 0;
+				var s = $scope.wgStats.singleMemberWorkgroups || 0;
+				if (t === 0) {
+					return 0;
+				}
+				return Math.round((s / t) * 1000) / 10;
+			};
+
+			$scope.wgTermedPercent = function () {
+				var t = $scope.wgStats.totalWorkgroups || 0;
+				var w = $scope.wgStats.workgroupsWithTermedMembers || 0;
+				if (t === 0) {
+					return 0;
+				}
+				return Math.round((w / t) * 1000) / 10;
+			};
+
+			$scope.wgActivePercent = function () {
+				var t = $scope.wgStats.totalWorkgroups || 0;
+				var a = $scope.wgStats.activeWorkgroups || 0;
+				if (t === 0) {
+					return 0;
+				}
+				return Math.round((a / t) * 1000) / 10;
+			};
+
+			$scope.wgDisabledPercent = function () {
+				var t = $scope.wgStats.totalWorkgroups || 0;
+				var d = $scope.wgStats.disabledWorkgroups || 0;
+				if (t === 0) {
+					return 0;
+				}
+				return Math.round((d / t) * 1000) / 10;
+			};
+
 			$scope.loadWgStats = function () {
 				$scope.wgStatsLoading = true;
 				$http({
@@ -133,11 +201,15 @@
 						$scope.wgStatsLoading = false;
 						$scope.wgStats = {
 							totalWorkgroups: 0,
+							totalRoles: 0,
+							rolesOwnedByWorkgroups: 0,
+							rolesWithWorkgroupOwner: 0,
 							workgroupsOwningRoles: 0,
 							workgroupsNotOwningRoles: 0,
+							singleMemberWorkgroups: 0,
+							workgroupsWithTermedMembers: 0,
 							activeWorkgroups: 0,
-							disabledWorkgroups: 0,
-							rolesWithWorkgroupOwner: 0
+							disabledWorkgroups: 0
 						};
 						$scope.showToast('Could not load workgroup statistics', 'error');
 					}
@@ -467,6 +539,175 @@
 				$scope.wgMemberCurrentPage = 1;
 				$scope.wgOwnerRoleSearch = '';
 				$scope.wgOwnerRoleCurrentPage = 1;
+			};
+
+			$scope.resetWgCreateForm = function () {
+				$scope.wgCreate = {
+					name: '',
+					description: '',
+					email: '',
+					ownerId: null,
+					ownerLabel: '',
+					notificationSetting: 'membersAndEmail'
+				};
+				$scope.wgOwnerSearch = '';
+				$scope.wgOwnerHits = [];
+				$scope.wgMemberPickSearch = '';
+				$scope.wgMemberHits = [];
+				$scope.wgPendingMembers = [];
+				$scope.wgCreateSaving = false;
+			};
+
+			$scope.openWgCreateModal = function () {
+				$scope.resetWgCreateForm();
+				$scope.showWgCreateModal = true;
+			};
+
+			$scope.closeWgCreateModal = function () {
+				if ($scope.wgCreateSaving) {
+					return;
+				}
+				$scope.showWgCreateModal = false;
+				$scope.resetWgCreateForm();
+			};
+
+			$scope.wgSuggestOwner = function () {
+				const q = ($scope.wgOwnerSearch || '').trim();
+				if (q.length < 2) {
+					$scope.wgOwnerHits = [];
+					return;
+				}
+				$http({
+					method: 'GET',
+					url: PluginHelper.getPluginRestUrl('rolemanagement/identities/suggest'),
+					params: { q: q, limit: 15 },
+					headers: $scope.headerToken.headers
+				}).then(
+					function success(res) {
+						$scope.wgOwnerHits = res.data || [];
+					},
+					function error() {
+						$scope.wgOwnerHits = [];
+					}
+				);
+			};
+
+			$scope.selectWgOwner = function (hit) {
+				if (!hit || !hit.id) {
+					return;
+				}
+				$scope.wgCreate.ownerId = hit.id;
+				$scope.wgCreate.ownerLabel = (hit.displayName || hit.name || '') + ' (' + hit.name + ')';
+				$scope.wgOwnerSearch = '';
+				$scope.wgOwnerHits = [];
+			};
+
+			$scope.wgSuggestMembers = function () {
+				const q = ($scope.wgMemberPickSearch || '').trim();
+				if (q.length < 2) {
+					$scope.wgMemberHits = [];
+					return;
+				}
+				$http({
+					method: 'GET',
+					url: PluginHelper.getPluginRestUrl('rolemanagement/identities/suggest'),
+					params: { q: q, limit: 20 },
+					headers: $scope.headerToken.headers
+				}).then(
+					function success(res) {
+						const rows = res.data || [];
+						const pendingIds = {};
+						$scope.wgPendingMembers.forEach(function (p) {
+							pendingIds[p.id] = true;
+						});
+						$scope.wgMemberHits = rows.filter(function (r) {
+							return r && r.id && !pendingIds[r.id];
+						});
+					},
+					function error() {
+						$scope.wgMemberHits = [];
+					}
+				);
+			};
+
+			$scope.addWgPendingMember = function (m) {
+				if (!m || !m.id) {
+					return;
+				}
+				const exists = $scope.wgPendingMembers.some(function (p) {
+					return p.id === m.id;
+				});
+				if (exists) {
+					return;
+				}
+				$scope.wgPendingMembers.push({
+					id: m.id,
+					name: m.name,
+					displayName: m.displayName,
+					firstname: m.firstname,
+					lastname: m.lastname
+				});
+				$scope.wgMemberPickSearch = '';
+				$scope.wgMemberHits = [];
+			};
+
+			$scope.removeWgPendingMember = function (id) {
+				$scope.wgPendingMembers = $scope.wgPendingMembers.filter(function (p) {
+					return p.id !== id;
+				});
+			};
+
+			$scope.submitCreateWorkgroup = function () {
+				const name = ($scope.wgCreate.name || '').trim();
+				if (!name) {
+					$scope.showToast('Name is required', 'warning');
+					return;
+				}
+				$scope.wgCreateSaving = true;
+				const payload = {
+					name: name,
+					description: ($scope.wgCreate.description || '').trim(),
+					email: ($scope.wgCreate.email || '').trim(),
+					notificationSetting: $scope.wgCreate.notificationSetting || 'membersAndEmail',
+					memberIds: $scope.wgPendingMembers.map(function (p) {
+						return p.id;
+					})
+				};
+				if ($scope.wgCreate.ownerId) {
+					payload.ownerId = $scope.wgCreate.ownerId;
+				}
+				$http({
+					method: 'POST',
+					url: PluginHelper.getPluginRestUrl('rolemanagement/workgroups'),
+					data: payload,
+					headers: $scope.headerToken.headers
+				}).then(
+					function success(res) {
+						const d = res.data || {};
+						$scope.wgCreateSaving = false;
+						if (d.message) {
+							$scope.showToast(d.message, 'warning');
+						} else {
+							$scope.showToast('Workgroup created', 'success');
+						}
+						$scope.showWgCreateModal = false;
+						$scope.resetWgCreateForm();
+						$scope.workgroupCurrentPage = 1;
+						$scope.loadWorkgroups();
+						$scope.loadWgStats();
+					},
+					function error(res) {
+						$scope.wgCreateSaving = false;
+						const d = res && res.data;
+						let msg = 'Could not create workgroup';
+						if (d && typeof d === 'object' && d.message) {
+							msg = d.message;
+						} else if (typeof d === 'string' && d.length > 0) {
+							msg = d;
+						}
+						$scope.showToast(msg, 'error');
+					}
+				);
 			};
 
 			$scope.loadWgStats();

@@ -23,19 +23,16 @@
 
 
 
-	<!-- Dashboard Container -->
-	<div class="card-container">
-	  <div class="dashboard-card" ng-repeat="card in dashboardCards" ng-click="filterByCard(card)">
-	    <div class="card-title">
-	      <span class="card-title">{{ card.title }}</span>
-      		<i class="fas fa-chevron-right card-arrow"></i>
-	      
+	<!-- Dashboard metrics -->
+	<div class="rm-dashboard-metrics">
+	  <div class="rm-metric-card rm-metric-card--interactive" ng-repeat="card in dashboardCards" ng-click="filterByCard(card)">
+	    <div class="rm-metric-icon rm-metric-icon--soft"><i class="fas fa-chart-pie" aria-hidden="true"></i></div>
+	    <div class="rm-metric-body">
+	      <span class="rm-metric-label">{{ card.title }}</span>
+	      <span class="rm-metric-value" ng-if="card.count !== null">{{ card.count | number }}</span>
 	    </div>
-	    <div class="card-count" ng-if="card.count !== null">
-	      {{ card.count }}
-	    </div>
+	    <i class="fas fa-chevron-right rm-metric-chevron" aria-hidden="true"></i>
 	  </div>
-	  
 	</div>
 
 <div class="modern-search-bar">
