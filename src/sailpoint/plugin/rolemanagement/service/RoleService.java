@@ -260,6 +260,46 @@ public class RoleService {
 		log(logPrefix+"getRiles RoleMap "+rolesMap);
 		return rolesMap;
 	}
+	public Map<String, Object> getRolesOwnedByWorkgroup(String workgroupId) throws GeneralException {
+		Map<String, Object> returnMap = new HashMap<String,Object>();
+		List<Map<String,Object>> roles = new ArrayList<Map<String,Object>>();
+
+		QueryOptions ops = new QueryOptions();
+		ops.addFilter(Filter.eq("owner.id", workgroupId));
+		ops.addFilter(Filter.or(Filter.eq("type", Constants.IT), Filter.eq("type", Constants.BUSINESS)));
+		ops.setOrderBy("name");
+		ops.setOrderAscending(true);
+
+		returnMap.put("total", _context.countObjects(Bundle.class, ops));
+
+		Iterator<Bundle> itr = _context.search(Bundle.class, ops);
+		if (itr != null) {
+			while (itr.hasNext()) {
+				Bundle role = itr.next();
+				Map<String,Object> row = new HashMap<String,Object>();
+				row.put("id", role.getId());
+				row.put("name", role.getName());
+				row.put("displayName", role.getDisplayName());
+				String type = role.getType();
+				if ("it".equals(type)) type = "IT";
+				if ("business".equals(type)) type = "Business";
+				row.put("type", type);
+				row.put("status", role.isDisabled() ? "Disabled" : "Enabled");
+				roles.add(row);
+			}
+			Util.flushIterator(itr);
+		}
+
+		List<Map<String,Object>> headers = new ArrayList<Map<String,Object>>();
+		headers.add(createHeader("name", "Role Name"));
+		headers.add(createHeader("displayName", "Display Name"));
+		headers.add(createHeader("type", "Type"));
+		headers.add(createHeader("status", "Status"));
+
+		returnMap.put("headers", headers);
+		returnMap.put("objects", roles);
+		return returnMap;
+	}
 
 	public Map<String, Object> getRole(String roleName) throws GeneralException, JSONException {
 		Map<String, Object> roleDetails = new HashMap<>();
@@ -361,6 +401,13 @@ public class RoleService {
 			}
 		}
 		return list;
+	}
+	
+	private Map<String,Object> createHeader(String key, String label) {
+		Map<String,Object> header = new HashMap<String,Object>();
+		header.put("key", key);
+		header.put("label", label);
+		return header;
 	}
 	
 	public List<Map<String, Object>> getRoleSimpleEntitlements(Bundle b) throws GeneralException, JSONException {
@@ -625,7 +672,6 @@ public class RoleService {
 	}
 
 	public Map<String, Object> getConfig() {
-		// TODO Auto-generated method stub
 		log(logPrefix+"Enter getDebugConfig");
 		Map<String,Object> returnMap = new HashMap<String,Object>();
 		try {
@@ -638,6 +684,33 @@ public class RoleService {
 		}
 		log(logPrefix+"Exit getDebugConfig");
 		return returnMap;
+	}
+
+	/**
+	 * Same semantics as bulk-request config / UI {@code isRoleAdmin} (bulk request config rule).
+	 */
+	public boolean isRoleAdmin() {
+		try {
+			String ruleName = (String) config.get(Constants.BULK_REQUEST_CONFIG_RULE);
+			if (Util.isNullOrEmpty(ruleName)) {
+				return false;
+			}
+			Map<String, Object> params = new HashMap<>();
+			params.put("loggedInUser", loggedInIdentity != null ? loggedInIdentity.getName() : null);
+			@SuppressWarnings("unchecked")
+			Map<String, Object> userConfig = (Map<String, Object>) RuleUtil.runIIQRule(_context, ruleName, params);
+			if (userConfig == null) {
+				return false;
+			}
+			Object raw = userConfig.get("isRoleAdmin");
+			if (raw instanceof Boolean) {
+				return (Boolean) raw;
+			}
+			return Util.otob(raw);
+		} catch (Exception e) {
+			log(logPrefix + "Error in isRoleAdmin " + e.getMessage());
+			return false;
+		}
 	}
 
 }

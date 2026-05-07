@@ -108,9 +108,24 @@ public class RoleManagementResource extends BasePluginResource {
 	public Response searchWorkgroups(@QueryParam("start") @DefaultValue("0") int start,
 			@QueryParam("limit") @DefaultValue("25") int limit,
 			@QueryParam("query") String query,
+			@QueryParam("memberIds") String memberIds,
 			@QueryParam("sort") @DefaultValue("name") String sort,
 			@QueryParam("dir") @DefaultValue("ASC") String dir) throws GeneralException {
-		Map<String, Object> data = getIdentityService().searchWorkgroups(start, limit, query, sort, dir);
+		boolean roleAdmin = getRoleService().isRoleAdmin();
+		List<String> memberIdList = new ArrayList<>();
+		if (memberIds != null && memberIds.trim().length() > 0) {
+			String[] chunks = memberIds.split(",");
+			for (String chunk : chunks) {
+				if (chunk != null) {
+					String id = chunk.trim();
+					if (!id.isEmpty()) {
+						memberIdList.add(id);
+					}
+				}
+			}
+		}
+		Map<String, Object> data = getIdentityService()
+				.searchWorkgroups(start, limit, query, sort, dir, roleAdmin, memberIdList);
 		return Response.ok(data).build();
 	}
 
@@ -119,7 +134,8 @@ public class RoleManagementResource extends BasePluginResource {
 	@Path("/workgroups/stats")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response getWorkgroupDashboardStats() throws GeneralException {
-		Map<String, Object> stats = getIdentityService().getWorkgroupDashboardStats();
+		boolean roleAdmin = getRoleService().isRoleAdmin();
+		Map<String, Object> stats = getIdentityService().getWorkgroupDashboardStats(roleAdmin);
 		return Response.ok(stats).build();
 	}
 

@@ -4,9 +4,11 @@
 package sailpoint.plugin.rolemanagement.service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,12 +46,36 @@ public class IdentityService {
 
 	/**
 	 * Paginated search of workgroup identities (type workgroup).
+	 * When {@code roleAdmin} is false, results are limited to workgroups the logged-in user belongs to.
 	 */
-	public Map<String, Object> searchWorkgroups(int start, int limit, String query, String sort, String dir)
-			throws GeneralException {
+	public Map<String, Object> searchWorkgroups(int start, int limit, String query, String sort, String dir,
+			boolean roleAdmin, List<String> memberIds) throws GeneralException {
 		Map<String, Object> result = new HashMap<>();
 		QueryOptions ops = new QueryOptions();
 		ops.addFilter(Filter.eq("workgroup", true));
+
+		Set<String> allowedWgIds = null;
+		if (!roleAdmin) {
+			allowedWgIds = new LinkedHashSet<>(workgroupIdsForLoggedInUser());
+		}
+		if (memberIds != null && !memberIds.isEmpty()) {
+			Set<String> memberScoped = workgroupIdsForMembers(memberIds);
+			if (allowedWgIds == null) {
+				allowedWgIds = memberScoped;
+			} else {
+				allowedWgIds.retainAll(memberScoped);
+			}
+		}
+		if (allowedWgIds != null) {
+			if (allowedWgIds.isEmpty()) {
+				result.put("total", 0);
+				result.put("objects", new ArrayList<Map<String, Object>>());
+				result.put("start", start);
+				result.put("limit", limit);
+				return result;
+			}
+			ops.addFilter(Filter.in("id", new ArrayList<>(allowedWgIds)));
+		}
 		if (Util.isNotNullOrEmpty(query)) {
 			String q = query.trim();
 			ops.addFilter(Filter.or(Filter.like("name", q), Filter.like("displayName", q)));
@@ -98,77 +124,58 @@ public class IdentityService {
 	}
 
 	/**
-	 * Dashboard aggregates aligned with the Workgroup Management UI tiles:
-	 * <ul>
-	 * <li>{@code totalWorkgroups} – identities flagged as workgroup</li>
-	 * <li>{@code rolesOwnedByWorkgroups} – role ({@link Bundle}) count whose owner is a workgroup</li>
-	 * <li>{@code workgroupsOwningRoles} – distinct workgroups that own ≥1 role (charts / donut)</li>
-	 * <li>{@code workgroupsNotOwningRoles} – workgroups that do not own any role</li>
-	 * <li>{@code singleMemberWorkgroups} – workgroups with exactly one member identity</li>
-	 * <li>{@code workgroupsWithTermedMembers} – workgroups having ≥1 member with {@code inactive == true}</li>
-	 * <li>{@code totalRoles} – all bundles (for % of roles owned by workgroups)</li>
-	 * <li>{@code activeWorkgroups} / {@code disabledWorkgroups} – workgroup identity activation chart</li>
-	 * </ul>
+	 * Dashboard aggregates for the Workgroup Management overview tiles.
+	 * When {@code roleAdmin} is false, workgroup-scoped metrics only include the logged-in user's workgroups.
 	 */
-	public Map<String, Object> getWorkgroupDashboardStats() throws GeneralException {
+	public Map<String, Object> getWorkgroupDashboardStats(boolean roleAdmin) throws GeneralException {
 		Map<String, Object> stats = new HashMap<>();
+
+		List<String> scopedWgIds = null;
+		if (!roleAdmin) {
+			scopedWgIds = workgroupIdsForLoggedInUser();
+			if (scopedWgIds.isEmpty()) {
+				stats.put("totalWorkgroups", 0);
+				stats.put("totalRoles", _context.countObjects(Bundle.class, new QueryOptions()));
+				stats.put("rolesOwnedByWorkgroups", 0);
+				stats.put("singleMemberWorkgroups", 0);
+				stats.put("workgroupsWithTermedMembers", 0);
+				return stats;
+			}
+		}
 
 		QueryOptions allWg = new QueryOptions();
 		allWg.addFilter(Filter.eq("workgroup", true));
+		if (!roleAdmin) {
+			allWg.addFilter(Filter.in("id", scopedWgIds));
+		}
 		int totalWorkgroups = _context.countObjects(Identity.class, allWg);
 		stats.put("totalWorkgroups", totalWorkgroups);
-
-		QueryOptions disabledOps = new QueryOptions();
-		disabledOps.addFilter(Filter.eq("workgroup", true));
-		disabledOps.addFilter(Filter.eq("inactive", true));
-		int disabledWorkgroups = _context.countObjects(Identity.class, disabledOps);
-		stats.put("disabledWorkgroups", disabledWorkgroups);
-		stats.put("activeWorkgroups", Math.max(0, totalWorkgroups - disabledWorkgroups));
 
 		int totalRoles = _context.countObjects(Bundle.class, new QueryOptions());
 		stats.put("totalRoles", totalRoles);
 
-		Set<String> distinctWorkgroupIdsOwningRoles = new HashSet<>();
-		int rolesOwnedByWorkgroups = 0;
-		QueryOptions bundleIterOps = new QueryOptions();
-		bundleIterOps.addFilter(Filter.notNull("owner"));
-		Iterator<Bundle> bitr = _context.search(Bundle.class, bundleIterOps);
-		if (bitr != null) {
-			try {
-				while (bitr.hasNext()) {
-					Bundle b = bitr.next();
-					Identity owner = b.getOwner();
-					if (owner != null && owner.isWorkgroup()) {
-						rolesOwnedByWorkgroups++;
-						distinctWorkgroupIdsOwningRoles.add(owner.getId());
-					}
-				}
-			} finally {
-				Util.flushIterator(bitr);
-			}
+		QueryOptions bundleOps = new QueryOptions();
+		bundleOps.addFilter(Filter.eq("owner.workgroup", true));
+		if (!roleAdmin) {
+			bundleOps.addFilter(Filter.in("owner.id", scopedWgIds));
 		}
+		int rolesOwnedByWorkgroups = _context.countObjects(Bundle.class, bundleOps);
 		stats.put("rolesOwnedByWorkgroups", rolesOwnedByWorkgroups);
-		stats.put("rolesWithWorkgroupOwner", rolesOwnedByWorkgroups);
 
-		int distinctOwning = distinctWorkgroupIdsOwningRoles.size();
-		stats.put("workgroupsOwningRoles", distinctOwning);
-		stats.put("workgroupsNotOwningRoles", Math.max(0, totalWorkgroups - distinctOwning));
+		int singleMemberWorkgroups = countWorkgroupsWithExactlyOneMemberSql(roleAdmin, scopedWgIds);
+		stats.put("singleMemberWorkgroups", singleMemberWorkgroups);
 
-		int singleMemberWorkgroups = 0;
 		int workgroupsWithTermedMembers = 0;
 		QueryOptions wgIterOps = new QueryOptions();
 		wgIterOps.addFilter(Filter.eq("workgroup", true));
+		if (!roleAdmin) {
+			wgIterOps.addFilter(Filter.in("id", scopedWgIds));
+		}
 		Iterator<Identity> wgit = _context.search(Identity.class, wgIterOps);
 		if (wgit != null) {
 			try {
 				while (wgit.hasNext()) {
 					Identity wg = wgit.next();
-					QueryOptions memQ = new QueryOptions();
-					memQ.addFilter(Filter.eq("workgroups.id", wg.getId()));
-					int memberCount = _context.countObjects(Identity.class, memQ);
-					if (memberCount == 1) {
-						singleMemberWorkgroups++;
-					}
 					QueryOptions termedQ = new QueryOptions();
 					termedQ.addFilter(Filter.eq("workgroups.id", wg.getId()));
 					termedQ.addFilter(Filter.eq("inactive", true));
@@ -181,10 +188,156 @@ public class IdentityService {
 				Util.flushIterator(wgit);
 			}
 		}
-		stats.put("singleMemberWorkgroups", singleMemberWorkgroups);
 		stats.put("workgroupsWithTermedMembers", workgroupsWithTermedMembers);
 
 		return stats;
+	}
+
+
+	/**
+	 * Counts workgroups that have exactly one member.
+	 * <ul>
+	 * <li>{@code roleAdmin == true}: all workgroups in the system.</li>
+	 * <li>{@code roleAdmin == false}: only among {@code scopedWorkgroupIds} (caller's workgroups); empty → 0.</li>
+	 * </ul>
+	 */
+	private int countWorkgroupsWithExactlyOneMemberSql(boolean roleAdmin, List<String> scopedWorkgroupIds)
+			throws GeneralException {
+		if (!roleAdmin) {
+			if (scopedWorkgroupIds == null || scopedWorkgroupIds.isEmpty()) {
+				return 0;
+			}
+		}
+
+		QueryOptions qo = new QueryOptions();
+		qo.setCloneResults(true);
+
+		String sql;
+		if (roleAdmin) {
+			sql =
+				"sql:SELECT COUNT(*) FROM ( "
+					+ "SELECT workgroup FROM spt_identity_workgroups "
+					+ "GROUP BY workgroup "
+					+ "HAVING COUNT(DISTINCT identity_id) = 1 "
+					+ ") single_member_wg";
+		} else {
+			StringBuilder inList = new StringBuilder();
+			for (int i = 0; i < scopedWorkgroupIds.size(); i++) {
+				if (i > 0) {
+					inList.append(',');
+				}
+				String id = scopedWorkgroupIds.get(i);
+				inList.append('\'').append(id != null ? id.replace("'", "''") : "").append('\'');
+			}
+			sql =
+				"sql:SELECT COUNT(*) FROM ( "
+					+ "SELECT workgroup FROM spt_identity_workgroups "
+					+ "WHERE workgroup IN (" + inList + ") "
+					+ "GROUP BY workgroup "
+					+ "HAVING COUNT(DISTINCT identity_id) = 1 "
+					+ ") single_member_wg";
+		}
+		Iterator<?> itr = _context.search(sql, new HashMap<>(), qo);
+		int count = 0;
+		if (itr != null) {
+			try {
+				if (itr.hasNext()) {
+					Object row = itr.next();
+					count = sqlCountResultToInt(row);
+				}
+			} finally {
+				Util.flushIterator(itr);
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * SQL scalar COUNT may be returned as {@link java.math.BigInteger} or a single cell;
+	 * multi-column rows come back as {@code Object[]}.
+	 */
+	private static int sqlCountResultToInt(Object row) {
+		if (row == null) {
+			return 0;
+		}
+		if (row instanceof Object[]) {
+			Object[] cells = (Object[]) row;
+			if (cells.length == 0 || cells[0] == null) {
+				return 0;
+			}
+			if (cells[0] instanceof Number) {
+				return numberToInt((Number) cells[0]);
+			}
+			return 0;
+		}
+		if (row instanceof Number) {
+			return numberToInt((Number) row);
+		}
+		return 0;
+	}
+
+	private List<String> workgroupIdsForLoggedInUser() throws GeneralException {
+		if (loggedInIdentity == null) {
+			return Collections.emptyList();
+		}
+		Identity fresh = _context.getObjectById(Identity.class, loggedInIdentity.getId());
+		if (fresh == null) {
+			return Collections.emptyList();
+		}
+		List<Identity> wgs = fresh.getWorkgroups();
+		List<String> ids = new ArrayList<>();
+		if (wgs != null) {
+			for (Identity wg : wgs) {
+				if (wg != null && wg.isWorkgroup() && wg.getId() != null) {
+					ids.add(wg.getId());
+				}
+			}
+		}
+		return ids;
+	}
+
+	/**
+	 * Returns workgroups common to all selected members.
+	 */
+	private Set<String> workgroupIdsForMembers(List<String> memberIds) throws GeneralException {
+		Set<String> common = null;
+		for (String mid : memberIds) {
+			if (Util.isNullOrEmpty(mid)) {
+				continue;
+			}
+			Identity member = _context.getObjectById(Identity.class, mid);
+			if (member == null || member.isWorkgroup()) {
+				return new HashSet<>();
+			}
+			List<Identity> memberWgs = member.getWorkgroups();
+			Set<String> memberSet = new LinkedHashSet<>();
+			if (memberWgs != null) {
+				for (Identity wg : memberWgs) {
+					if (wg != null && wg.getId() != null && wg.isWorkgroup()) {
+						memberSet.add(wg.getId());
+					}
+				}
+			}
+			if (common == null) {
+				common = memberSet;
+			} else {
+				common.retainAll(memberSet);
+			}
+			if (common.isEmpty()) {
+				return common;
+			}
+		}
+		return common == null ? new LinkedHashSet<>() : common;
+	}
+
+	private static int numberToInt(Number n) {
+		if (n instanceof java.math.BigInteger) {
+			return ((java.math.BigInteger) n).intValue();
+		}
+		if (n instanceof java.math.BigDecimal) {
+			return ((java.math.BigDecimal) n).intValue();
+		}
+		return n.intValue();
 	}
 
 	/**

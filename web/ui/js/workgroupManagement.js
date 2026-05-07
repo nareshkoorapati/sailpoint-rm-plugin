@@ -29,6 +29,13 @@
 			$scope.workgroupTotal = 0;
 			$scope.workgroupRows = [];
 			$scope.workgroupSearchText = '';
+			$scope.showWgMemberFilterDropdown = false;
+			$scope.wgFilterMemberSearch = '';
+			$scope.wgFilterMemberOptions = [];
+			$scope.wgFilterMemberDraft = {};
+			$scope.wgFilterMemberCache = {};
+			$scope.wgFilterLoading = false;
+			$scope.wgSelectedMemberFilters = [];
 			$scope.showWgMembersModal = false;
 			$scope.wgMembers = [];
 			$scope.wgMemberHeaders = [];
@@ -74,72 +81,6 @@
 			$scope.wgStats = {};
 			$scope.wgStatsLoading = true;
 
-			$scope.wgOwnershipDonutStyle = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var o = $scope.wgStats.workgroupsOwningRoles || 0;
-				if (t === 0) {
-					return { background: '#e8ecef' };
-				}
-				var deg = (o / t) * 360;
-				return {
-					background:
-						'conic-gradient(#10A2CE 0deg ' +
-						deg +
-						'deg, #d8dee4 ' +
-						deg +
-						'deg 360deg)'
-				};
-			};
-
-			$scope.wgStatusDonutStyle = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var a = $scope.wgStats.activeWorkgroups || 0;
-				if (t === 0) {
-					return { background: '#e8ecef' };
-				}
-				var deg = (a / t) * 360;
-				return {
-					background:
-						'conic-gradient(#2e7d32 0deg ' +
-						deg +
-						'deg, #c62828 ' +
-						deg +
-						'deg 360deg)'
-				};
-			};
-
-			$scope.wgOwnershipBarStyle = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var o = $scope.wgStats.workgroupsOwningRoles || 0;
-				var pct = t > 0 ? (o / t) * 100 : 0;
-				return { width: pct + '%' };
-			};
-
-			$scope.wgNotOwnerBarStyle = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var n = $scope.wgStats.workgroupsNotOwningRoles || 0;
-				var pct = t > 0 ? (n / t) * 100 : 0;
-				return { width: pct + '%' };
-			};
-
-			$scope.wgOwnershipPercent = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var o = $scope.wgStats.workgroupsOwningRoles || 0;
-				if (t === 0) {
-					return 0;
-				}
-				return Math.round((o / t) * 1000) / 10;
-			};
-
-			$scope.wgNotOwnerPercent = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var n = $scope.wgStats.workgroupsNotOwningRoles || 0;
-				if (t === 0) {
-					return 0;
-				}
-				return Math.round((n / t) * 1000) / 10;
-			};
-
 			/** % of all Bundle roles that list a workgroup as owner (Overview tile 2). */
 			$scope.wgRolesOwnedPercent = function () {
 				var tr = $scope.wgStats.totalRoles || 0;
@@ -168,24 +109,6 @@
 				return Math.round((w / t) * 1000) / 10;
 			};
 
-			$scope.wgActivePercent = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var a = $scope.wgStats.activeWorkgroups || 0;
-				if (t === 0) {
-					return 0;
-				}
-				return Math.round((a / t) * 1000) / 10;
-			};
-
-			$scope.wgDisabledPercent = function () {
-				var t = $scope.wgStats.totalWorkgroups || 0;
-				var d = $scope.wgStats.disabledWorkgroups || 0;
-				if (t === 0) {
-					return 0;
-				}
-				return Math.round((d / t) * 1000) / 10;
-			};
-
 			$scope.loadWgStats = function () {
 				$scope.wgStatsLoading = true;
 				$http({
@@ -203,13 +126,8 @@
 							totalWorkgroups: 0,
 							totalRoles: 0,
 							rolesOwnedByWorkgroups: 0,
-							rolesWithWorkgroupOwner: 0,
-							workgroupsOwningRoles: 0,
-							workgroupsNotOwningRoles: 0,
 							singleMemberWorkgroups: 0,
-							workgroupsWithTermedMembers: 0,
-							activeWorkgroups: 0,
-							disabledWorkgroups: 0
+							workgroupsWithTermedMembers: 0
 						};
 						$scope.showToast('Could not load workgroup statistics', 'error');
 					}
@@ -427,6 +345,11 @@
 				if (q.length > 0) {
 					params.query = q;
 				}
+				if ($scope.wgSelectedMemberFilters.length > 0) {
+					params.memberIds = $scope.wgSelectedMemberFilters
+						.map(function (m) { return m.id; })
+						.join(',');
+				}
 				$scope.wgLoading = true;
 				$http({
 					method: 'GET',
@@ -452,6 +375,108 @@
 			$scope.triggerWorkgroupSearch = function () {
 				$scope.workgroupCurrentPage = 1;
 				$scope.loadWorkgroups();
+			};
+
+			$scope.toggleWgMemberFilterDropdown = function () {
+				$scope.showWgMemberFilterDropdown = !$scope.showWgMemberFilterDropdown;
+				if ($scope.showWgMemberFilterDropdown) {
+					$scope.wgFilterMemberDraft = {};
+					$scope.wgSelectedMemberFilters.forEach(function (m) {
+						if (m && m.id) {
+							$scope.wgFilterMemberDraft[m.id] = true;
+						}
+					});
+					$scope.loadWgFilterMembers('');
+				}
+			};
+
+			$scope.loadWgFilterMembers = function (query) {
+				const q = (query || '').trim();
+				$scope.wgFilterLoading = true;
+				$http({
+					method: 'GET',
+					url: PluginHelper.getPluginRestUrl('rolemanagement/identities/suggest'),
+					params: { q: q, limit: 80 },
+					headers: $scope.headerToken.headers
+				}).then(
+					function success(res) {
+						const rows = res.data || [];
+						$scope.wgFilterMemberOptions = rows.filter(function (r) {
+							return r && r.id;
+						});
+						$scope.wgFilterMemberOptions.forEach(function (r) {
+							$scope.wgFilterMemberCache[r.id] = r;
+						});
+						$scope.wgFilterLoading = false;
+					},
+					function error() {
+						$scope.wgFilterMemberOptions = [];
+						$scope.wgFilterLoading = false;
+					}
+				);
+			};
+
+			$scope.wgSuggestFilterMembers = function () {
+				$scope.loadWgFilterMembers($scope.wgFilterMemberSearch);
+			};
+
+			$scope.toggleWgFilterMember = function (member) {
+				if (!member || !member.id) {
+					return;
+				}
+				const current = !!$scope.wgFilterMemberDraft[member.id];
+				$scope.wgFilterMemberDraft[member.id] = !current;
+			};
+
+			$scope.toggleWgFilterAllVisible = function () {
+				const allSelected = $scope.areAllWgFilterVisibleSelected();
+				$scope.wgFilterMemberOptions.forEach(function (m) {
+					if (m && m.id) {
+						$scope.wgFilterMemberDraft[m.id] = !allSelected;
+					}
+				});
+			};
+
+			$scope.areAllWgFilterVisibleSelected = function () {
+				if (!$scope.wgFilterMemberOptions.length) {
+					return false;
+				}
+				return $scope.wgFilterMemberOptions.every(function (m) {
+					return !!$scope.wgFilterMemberDraft[m.id];
+				});
+			};
+
+			$scope.removeWgFilterMember = function (id) {
+				$scope.wgSelectedMemberFilters = $scope.wgSelectedMemberFilters.filter(function (m) {
+					return m.id !== id;
+				});
+				$scope.triggerWorkgroupSearch();
+			};
+
+			$scope.applyWgMemberFilter = function () {
+				const selected = [];
+				Object.keys($scope.wgFilterMemberDraft).forEach(function (id) {
+					if ($scope.wgFilterMemberDraft[id]) {
+						const hit = $scope.wgFilterMemberCache[id];
+						selected.push({
+							id: id,
+							name: (hit && hit.name) || id,
+							displayName: (hit && hit.displayName) || (hit && hit.name) || id
+						});
+					}
+				});
+				$scope.wgSelectedMemberFilters = selected;
+				$scope.showWgMemberFilterDropdown = false;
+				$scope.triggerWorkgroupSearch();
+			};
+
+			$scope.clearWgMemberFilter = function () {
+				$scope.wgSelectedMemberFilters = [];
+				$scope.wgFilterMemberSearch = '';
+				$scope.wgFilterMemberDraft = {};
+				$scope.wgFilterMemberOptions = [];
+				$scope.showWgMemberFilterDropdown = false;
+				$scope.triggerWorkgroupSearch();
 			};
 
 			$scope.wgGoToFirstPage = function () {

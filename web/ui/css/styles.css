@@ -730,6 +730,133 @@ body {
   border: 1px solid #e5e7eb;
 }
 
+.wg-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.modern-search-bar--compact {
+  width: 280px;
+  margin-bottom: 0;
+  padding: 3px 10px;
+}
+
+.modern-search-bar--compact input {
+  padding: 5px 24px 5px 2px;
+}
+
+.wg-filter-dropdown-wrap {
+  position: relative;
+}
+
+.wg-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wg-filter-btn:hover {
+  border-color: #9ca3af;
+}
+
+.wg-filter-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
+  padding: 10px;
+  z-index: 40;
+}
+
+.wg-filter-search-wrap {
+  margin-bottom: 8px;
+}
+
+.wg-excel-list-wrap {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+}
+
+.wg-excel-row {
+  padding: 6px 8px;
+  border-bottom: 1px dotted #e5e7eb;
+  font-size: 13px;
+}
+
+.wg-excel-row:last-child {
+  border-bottom: none;
+}
+
+.wg-excel-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 500;
+}
+
+.wg-excel-row-head {
+  background: #f9fafb;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.wg-excel-empty {
+  padding: 10px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.wg-filter-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.wg-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfeff;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.wg-filter-chip i {
+  cursor: pointer;
+}
+
+.wg-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .search-icon {
   color: #888;
   margin-right: 8px;
@@ -1681,10 +1808,6 @@ textarea.ng-invalid.ng-touched {
   letter-spacing: -0.01em;
 }
 
-.wg-charts-heading {
-  margin-top: 22px;
-}
-
 .wg-stat-card {
   cursor: default;
 }
@@ -1692,223 +1815,6 @@ textarea.ng-invalid.ng-touched {
 .wg-stat-card:hover {
   border-color: #e5e7eb;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-.wg-chart-panel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-bottom: 16px;
-  align-items: stretch;
-}
-
-.wg-chart-cell {
-  flex: 1 1 300px;
-  max-width: 440px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 14px 16px 14px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-.wg-chart-title {
-  margin: 0 0 4px 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.wg-chart-hint {
-  margin: 0 0 12px 0;
-  font-size: 11px;
-  color: #6b7280;
-  line-height: 1.35;
-}
-
-.wg-chart-body {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.wg-donut-wrap {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  margin: 0;
-  flex-shrink: 0;
-}
-
-.wg-donut-wrap--sm {
-  width: 118px;
-  height: 118px;
-}
-
-.wg-donut {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-}
-
-.wg-donut-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 54%;
-  height: 54%;
-  background: #fff;
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: 10px;
-  color: #6b7280;
-  line-height: 1.15;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-}
-
-.wg-donut-center strong {
-  font-size: 17px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.wg-chart-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 12px;
-  color: #4b5563;
-}
-
-.wg-chart-legend--side {
-  flex: 1;
-  min-width: 160px;
-  align-self: center;
-}
-
-.wg-legend-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-  line-height: 1.25;
-}
-
-.wg-legend-row:last-child {
-  margin-bottom: 0;
-}
-
-.wg-legend-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.wg-legend-meta {
-  font-size: 11px;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.wg-legend-meta strong {
-  color: #111827;
-  font-weight: 600;
-  margin-left: 2px;
-}
-
-.wg-leg-swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.wg-sw-own {
-  background: #10a2ce;
-}
-
-.wg-sw-none {
-  background: #d8dee4;
-}
-
-.wg-sw-active {
-  background: #2e7d32;
-}
-
-.wg-sw-disabled {
-  background: #c62828;
-}
-
-.wg-bar-chart-block {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 14px 16px 13px;
-  max-width: 640px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-.wg-bar-track {
-  display: flex;
-  height: 22px;
-  border-radius: 6px;
-  overflow: hidden;
-  background: #f3f4f6;
-  margin-top: 6px;
-}
-
-.wg-bar-seg {
-  height: 100%;
-  min-width: 0;
-  transition: width 0.45s ease;
-}
-
-.wg-bar-own {
-  background: #10a2ce;
-}
-
-.wg-bar-notowner {
-  background: #90a4ae;
-}
-
-.wg-bar-empty {
-  margin-top: 10px;
-  font-size: 0.9rem;
-  color: #5c6f82;
-}
-
-.wg-bar-labels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
-  margin-top: 10px;
-  font-size: 11px;
-  color: #6b7280;
-}
-
-.wg-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-
-.wg-dot-own {
-  background: #10a2ce;
-}
-
-.wg-dot-notowner {
-  background: #90a4ae;
 }
 
 /* Create workgroup modal & header actions */

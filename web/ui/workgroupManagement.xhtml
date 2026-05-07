@@ -9,8 +9,7 @@
 	<div ng-controller="WorkgroupManagementController">
 	<div class="wg-page-header wg-page-header-row">
 		<div class="wg-page-header-text">
-			<h2 class="wg-page-title">Workgroup Management</h2>
-			<p class="wg-page-subtitle">Search workgroups and view their members.</p>
+			<h1 class="wg-page-title">Workgroup Management</h1>
 		</div>
 		<button type="button" class="wg-btn wg-btn-primary" ng-click="openWgCreateModal()">
 			<i class="fas fa-plus"></i> Create workgroup
@@ -58,82 +57,72 @@
 				</div>
 			</div>
 		</div>
-
-		<h3 class="wg-dashboard-heading wg-charts-heading">Distribution</h3>
-		<div class="wg-chart-panel">
-			<div class="wg-chart-cell">
-				<h4 class="wg-chart-title">Role ownership</h4>
-				<p class="wg-chart-hint">Share of workgroups that own at least one role</p>
-				<div class="wg-chart-body">
-					<div class="wg-donut-wrap wg-donut-wrap--sm">
-						<div class="wg-donut" ng-style="wgOwnershipDonutStyle()"></div>
-						<div class="wg-donut-center">
-							<strong>{{ wgStats.workgroupsOwningRoles | number }}</strong>
-							<span>of {{ wgStats.totalWorkgroups | number }}</span>
-						</div>
-					</div>
-					<ul class="wg-chart-legend wg-chart-legend--side">
-						<li class="wg-legend-row">
-							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-own"></span> Owns ≥1 role</span>
-							<span class="wg-legend-meta">({{ wgOwnershipPercent() }}%) <strong>{{ wgStats.workgroupsOwningRoles | number }}</strong></span>
-						</li>
-						<li class="wg-legend-row">
-							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-none"></span> Not an owner</span>
-							<span class="wg-legend-meta">({{ wgNotOwnerPercent() }}%) <strong>{{ wgStats.workgroupsNotOwningRoles | number }}</strong></span>
-						</li>
-					</ul>
-				</div>
-			</div>
-			<div class="wg-chart-cell">
-				<h4 class="wg-chart-title">Activation</h4>
-				<p class="wg-chart-hint">Active vs disabled workgroup identities</p>
-				<div class="wg-chart-body">
-					<div class="wg-donut-wrap wg-donut-wrap--sm">
-						<div class="wg-donut" ng-style="wgStatusDonutStyle()"></div>
-						<div class="wg-donut-center">
-							<strong>{{ wgStats.activeWorkgroups | number }}</strong>
-							<span>active</span>
-						</div>
-					</div>
-					<ul class="wg-chart-legend wg-chart-legend--side">
-						<li class="wg-legend-row">
-							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-active"></span> Active</span>
-							<span class="wg-legend-meta">({{ wgActivePercent() }}%) <strong>{{ wgStats.activeWorkgroups | number }}</strong></span>
-						</li>
-						<li class="wg-legend-row">
-							<span class="wg-legend-main"><span class="wg-leg-swatch wg-sw-disabled"></span> Disabled</span>
-							<span class="wg-legend-meta">({{ wgDisabledPercent() }}%) <strong>{{ wgStats.disabledWorkgroups | number }}</strong></span>
-						</li>
-					</ul>
-				</div>
-			</div>
-		</div>
-
-		<div class="wg-bar-chart-block">
-			<h4 class="wg-chart-title">Workgroups by role ownership</h4>
-			<div class="wg-bar-track" ng-if="(wgStats.totalWorkgroups || 0) > 0">
-				<div class="wg-bar-seg wg-bar-own" ng-style="wgOwnershipBarStyle()"></div>
-				<div class="wg-bar-seg wg-bar-notowner" ng-style="wgNotOwnerBarStyle()"></div>
-			</div>
-			<div class="wg-bar-empty" ng-if="(wgStats.totalWorkgroups || 0) === 0">No workgroups to display.</div>
-			<div class="wg-bar-labels" ng-if="(wgStats.totalWorkgroups || 0) > 0">
-				<span><i class="wg-dot wg-dot-own"></i> Owns roles: {{ wgStats.workgroupsOwningRoles | number }} ({{ wgOwnershipPercent() }}%)</span>
-				<span><i class="wg-dot wg-dot-notowner"></i> Does not own: {{ wgStats.workgroupsNotOwningRoles | number }} ({{ wgNotOwnerPercent() }}%)</span>
-			</div>
-		</div>
 	</div>
 
-	<div class="modern-search-bar">
-		<i class="fas fa-search search-icon"></i>
-		<input class="searchRoles" type="text"
-			placeholder="Filter by name or display name..."
-			ng-model="workgroupSearchText"
-			ng-model-options="{ debounce: 400 }"
-			ng-change="triggerWorkgroupSearch()" />
-		<i class="fas fa-times clear-icon"
-			ng-if="workgroupSearchText"
-			ng-click="workgroupSearchText = ''; triggerWorkgroupSearch()">
-		</i>
+	<div class="wg-filter-row">
+		<div class="modern-search-bar modern-search-bar--compact">
+			<i class="fas fa-search search-icon"></i>
+			<input class="searchRoles" type="text"
+				placeholder="Search workgroups..."
+				ng-model="workgroupSearchText"
+				ng-model-options="{ debounce: 400 }"
+				ng-change="triggerWorkgroupSearch()" />
+			<i class="fas fa-times clear-icon"
+				ng-if="workgroupSearchText"
+				ng-click="workgroupSearchText = ''; triggerWorkgroupSearch()">
+			</i>
+		</div>
+
+		<div class="wg-filter-dropdown-wrap">
+			<button type="button" class="wg-filter-btn" ng-click="toggleWgMemberFilterDropdown()">
+				<span>Members: {{ wgSelectedMemberFilters.length > 0 ? (wgSelectedMemberFilters.length + ' selected') : 'Any' }}</span>
+				<i class="fas" ng-class="showWgMemberFilterDropdown ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+			</button>
+			<div class="wg-filter-panel" ng-if="showWgMemberFilterDropdown">
+				<div class="wg-typeahead wg-filter-search-wrap">
+					<input
+						type="text"
+						class="wg-input"
+						placeholder="Search users"
+						ng-model="wgFilterMemberSearch"
+						ng-model-options="{ debounce: 250 }"
+						ng-change="wgSuggestFilterMembers()" />
+				</div>
+
+				<div class="wg-excel-list-wrap">
+					<div class="wg-excel-row wg-excel-row-head">
+						<label>
+							<input type="checkbox" ng-checked="areAllWgFilterVisibleSelected()" ng-click="toggleWgFilterAllVisible()" />
+							<span>(Select All)</span>
+						</label>
+					</div>
+					<div class="wg-excel-row" ng-repeat="m in wgFilterMemberOptions track by m.id">
+						<label>
+							<input type="checkbox" ng-checked="!!wgFilterMemberDraft[m.id]" ng-click="toggleWgFilterMember(m)" />
+							<span>{{ m.displayName || m.name }}</span>
+						</label>
+					</div>
+					<div class="wg-excel-empty" ng-if="!wgFilterLoading &amp;&amp; wgFilterMemberOptions.length === 0">
+						No users found
+					</div>
+					<div class="wg-excel-empty" ng-if="wgFilterLoading">
+						Loading users...
+					</div>
+				</div>
+
+				<div class="wg-filter-chip-wrap" ng-if="wgSelectedMemberFilters.length">
+					<span class="wg-filter-chip" ng-repeat="m in wgSelectedMemberFilters track by m.id">
+						{{ m.displayName || m.name }}
+						<i class="fas fa-times" ng-click="removeWgFilterMember(m.id)"></i>
+					</span>
+				</div>
+
+				<div class="wg-filter-actions">
+					<button type="button" class="wg-btn wg-btn-secondary" ng-click="clearWgMemberFilter()">Clear</button>
+					<button type="button" class="wg-btn wg-btn-primary" ng-click="applyWgMemberFilter()">Apply</button>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<div class="table-wrapper-fixed">
