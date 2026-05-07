@@ -56,9 +56,10 @@
   
   results.put("isRoleAdmin",impersonatorIdentity.isInWorkGroup(wg));
   
+  log.error("config results "+results);
   return results;
 
   
-  return results;			
+  	
   </Source>
 </Rule>
