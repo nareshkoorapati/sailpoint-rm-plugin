@@ -48,12 +48,38 @@ body {
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
 }
 
+/*
+ * Role dashboard (home): metric strip uses the same grid class as Workgroup Management
+ * (.rm-dashboard-metrics.wg-dashboard-metrics). Clickable tiles should visually match
+ * Workgroup stat cards (flat hover), not the stronger interactive accent used elsewhere.
+ */
+.rm-dashboard-metrics.wg-dashboard-metrics .rm-metric-card--interactive:hover {
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.rm-dashboard-metrics.wg-dashboard-metrics .rm-metric-card--interactive:active {
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+/* Role dashboard home: tiles mirror Workgroup metric blocks (label / value / foot) */
+.rm-dashboard-metric-card--role .rm-metric-body {
+  gap: 3px;
+}
+
+.rm-dashboard-metric-card--role .rm-metric-chevron {
+  align-self: center;
+}
+
 .rm-metric-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
   flex: 1;
+  /* Reserve space before trailing chevron / card edge so labels don’t crowd the right side */
+  padding-right: 12px;
 }
 
 .rm-metric-card--interactive .rm-metric-body {
@@ -135,7 +161,7 @@ body {
   align-self: center;
   font-size: 11px;
   color: #9ca3af;
-  margin-left: 4px;
+  margin-left: 6px;
 }
 .sidebar {
   width: 250px;
@@ -408,7 +434,6 @@ body {
   color: #1f2937;
   font-weight: 600;
   font-size: 12px;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   transition: background-color 0.2s ease;
   position: sticky;
@@ -838,8 +863,8 @@ body {
   align-items: center;
   gap: 6px;
   background: #ecfeff;
-  color: #0f766e;
-  border: 1px solid #99f6e4;
+  color: #011E69;
+  border: 1px solid #011E69;
   border-radius: 999px;
   padding: 3px 8px;
   font-size: 11px;
@@ -855,6 +880,289 @@ body {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 12px;
+}
+
+.wg-more-filter-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
+  padding: 0;
+  overflow: hidden;
+  z-index: 41;
+}
+
+.wg-more-filter-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.wg-more-filter-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.wg-more-filter-row:last-of-type {
+  border-bottom: none;
+}
+
+.wg-more-filter-row:hover {
+  background: #fafafa;
+}
+
+.wg-more-filter-row--selected {
+  background: #f3f4f6;
+}
+
+.wg-more-filter-row--selected:hover {
+  background: #eceff2;
+}
+
+.wg-more-filter-check {
+  flex-shrink: 0;
+  width: 1.25rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.wg-more-filter-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.wg-more-filter-footer {
+  padding: 8px 12px 10px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.wg-more-filter-clear-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.wg-more-filter-clear-link:hover {
+  text-decoration: underline;
+}
+
+.wg-clear-all-link {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wg-clear-all-link:hover {
+  text-decoration: underline;
+}
+
+/* Role dashboard (home.xhtml): filter strip next to compact search */
+.rm-role-filter-row {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.rm-role-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.rm-role-filter-actions .wg-clear-all-link {
+  margin-left: 0;
+}
+
+.rm-role-column-wrap.column-toggle-wrapper {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.rm-role-column-wrap .column-menu.searchable-scrollable-menu {
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+}
+
+.rm-role-owner-panel {
+  width: 340px;
+}
+
+.rm-role-owner-list {
+  margin-bottom: 4px;
+}
+
+.rm-role-owner-hit-row {
+  cursor: pointer;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.rm-role-owner-hit-row:hover {
+  background: #f9fafb;
+}
+
+.rm-role-owner-type-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.rm-role-owner-type-icon--id {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.rm-role-owner-type-icon--wg {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.rm-role-owner-hit-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rm-role-owner-hit-main {
+  font-weight: 600;
+  color: #111827;
+}
+
+.rm-role-owner-hit-sub {
+  font-size: 11px;
+}
+
+.rm-role-more-body {
+  padding: 10px 12px 0;
+}
+
+.modern-search-bar--half {
+  flex: 1 1 260px;
+  width: auto !important;
+  max-width: min(50%, 440px);
+  min-width: 180px;
+  margin-bottom: 0 !important;
+}
+
+.rm-role-filter-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rm-role-filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0;
+}
+
+.rm-role-filter-select {
+  min-width: 112px;
+  padding: 7px 28px 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.rm-role-owner-field {
+  min-width: 200px;
+  max-width: 260px;
+}
+
+.rm-role-owner-inner {
+  position: relative;
+}
+
+.rm-role-owner-typeahead .wg-input {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.rm-role-owner-typeahead .wg-typeahead-list {
+  min-width: 280px;
+  z-index: 50;
+}
+
+.rm-role-owner-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ecfeff;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f766e;
+}
+
+.rm-role-owner-clear {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: #0f766e;
+  font-size: 12px;
+}
+
+.rm-role-more-panel {
+  width: 340px;
+}
+
+.rm-role-more-hint {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.rm-role-more-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 4px;
 }
 
 .search-icon {
@@ -896,6 +1204,29 @@ body {
   color: #007bff; 
   font-size: 1.2em;
   line-height: 1; 
+}
+
+/* Modal search clear: real button above input hit-target (avoid clicks swallowed by input) */
+.custom-modal-body .modern-search-bar .modern-search-bar-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  margin: 0;
+  cursor: pointer;
+  color: #007bff;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.custom-modal-body .modern-search-bar .modern-search-bar-clear:hover {
+  color: #0056b3;
+  background: rgba(0, 123, 255, 0.08);
 }
 /* Modern Table */
 .modern-table-wrapper {
@@ -1845,9 +2176,9 @@ textarea.ng-invalid.ng-touched {
 }
 
 .wg-btn-primary {
-  background: #0d9488;
+  background: #011E69;
   color: #fff;
-  border-color: #0d9488;
+  border-color: #011E69;
 }
 
 .wg-btn-primary:hover:not(:disabled) {
@@ -1857,7 +2188,7 @@ textarea.ng-invalid.ng-touched {
 
 .wg-btn-secondary {
   background: #fff;
-  color: #0d9488;
+  color: #011E69;
   border-color: #cbd5e1;
 }
 

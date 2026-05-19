@@ -24,7 +24,7 @@
                         <i class="fas fa-chevron-right card-arrow"></i>                    
                     </div>
                 </div>
-                <div class="dashboard-card" ng-click="downloadTemplate()">
+                <div class="dashboard-card" ng-click="openTemplateDownloadModal()">
                     <div class="card-title">
                     <span class="card-title">Download Template file</span>
                         <i class="fas fa-chevron-right card-arrow"></i>                    
@@ -447,6 +447,49 @@
 					</div>
 				</div>
 			</div>            
+			<div class="custom-modal-backdrop" ng-show="showTemplateDownloadModal" ng-cloak="true">
+				<div class="custom-modal-box" style="max-width: 480px;">
+					<div class="custom-modal-header">
+						<i class="fas fa-download"></i>
+						<h4>Download Template</h4>
+						<span class="close-icon" ng-click="closeTemplateDownloadModal()"><i
+							class="fa-solid fa-xmark"></i></span>
+					</div>
+					<div class="custom-modal-body">
+						<p style="margin-bottom: 12px;">Select the role type for the bulk upload template.</p>
+						<div class="form-row" style="display: block; margin-bottom: 0;">
+							<label class="form-label" style="display: block; margin-bottom: 8px;">Role Type</label>
+							<div class="form-field">
+								<label class="radio-option">
+									<input type="radio"
+									       ng-model="templateDownload.roleType"
+									       value="it" />
+									IT Roles
+								</label>
+								<label class="radio-option">
+									<input type="radio"
+									       ng-model="templateDownload.roleType"
+									       value="business" />
+									Business Roles
+								</label>
+							</div>
+						</div>
+						<div class="form-actions" style="justify-content: flex-end; margin-top: 16px;">
+							<button type="button"
+							        class="mat-button-outlined"
+							        ng-click="closeTemplateDownloadModal()">
+								Cancel
+							</button>
+							<button type="button"
+							        class="mat-button-filled"
+							        ng-click="downloadTemplate()"
+							        ng-disabled="templateDownloadInProgress">
+								Download
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
 			<div class="custom-modal-backdrop" ng-show="showRejectConfirmation" ng-cloak="true">
 				<div class="custom-modal-box" style="max-width: 560px;">
 					<div class="custom-modal-header">

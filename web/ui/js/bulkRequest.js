@@ -418,32 +418,81 @@ RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  fun
         }
     };
 
+    $scope.showTemplateDownloadModal = false;
+    $scope.templateDownload = { roleType: 'it' };
+    $scope.templateDownloadInProgress = false;
+
+    $scope.openTemplateDownloadModal = function () {
+        $scope.templateDownload.roleType = 'it';
+        $scope.showTemplateDownloadModal = true;
+    };
+
+    $scope.closeTemplateDownloadModal = function () {
+        $scope.showTemplateDownloadModal = false;
+    };
+
     /**
-     * Downloads the CSV template for bulk role upload.
-     * Initiates a GET request to the backend and triggers a file download in the browser.
+     * Downloads the Excel template for bulk role upload for the selected role type.
      */
     $scope.downloadTemplate = function () {
-        $http.get(PluginHelper.getPluginRestUrl("rolemanagement/batch/downloadTemplate"))
-		        .then(function (response) {
-		          const csvContent = response.data;
-				  console.log("CSV Content ",csvContent);
-                  const blob = new Blob([csvContent], { type: 'application/csv;charset=utf-8;' });
-		          const url = window.URL.createObjectURL(blob);
-		
-		          const link = document.createElement("a");
-		          link.href = url;
-		          link.download = "roleBulkUploadTemplate.csv";
-		          document.body.appendChild(link);
-		          link.click();
-		          document.body.removeChild(link);
-		          window.URL.revokeObjectURL(url);
-		
-		          $scope.showToast("Download started", "success");
-		        })
-		        .catch(function (error) {
-				  console.warn("error in get Role download data ",error);
-		          $scope.showToast("Download failed", "error");
-		        });
+        var roleType = ($scope.templateDownload.roleType || 'it').toLowerCase();
+        var fileName = roleType === 'business'
+            ? 'Business_Role_BulkUpload_Template.xlsx'
+            : 'IT_Role_BulkUpload_Template.xlsx';
+
+        $scope.templateDownloadInProgress = true;
+        $http.get(PluginHelper.getPluginRestUrl("rolemanagement/batch/downloadTemplate"), {
+            params: { roleType: roleType }
+        })
+            .then(function (response) {
+                var payload = response.data || {};
+                var base64Content = payload.content;
+                if (!base64Content) {
+                    $scope.showToast('Download failed: empty file', 'error');
+                    return;
+                }
+
+                var binary = atob(base64Content);
+                var bytes = new Uint8Array(binary.length);
+                for (var i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                if (bytes.length < 2 || bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
+                    console.warn('Template download: unexpected content prefix', bytes[0], bytes[1]);
+                    $scope.showToast('Download failed: invalid file content', 'error');
+                    return;
+                }
+
+                var blob = new Blob([bytes], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                var url = window.URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = payload.fileName || fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+
+                $scope.showTemplateDownloadModal = false;
+                $scope.showToast('Download started', 'success');
+            })
+            .catch(function (error) {
+                console.warn('error downloading bulk upload template', error);
+                var msg = 'Download failed';
+                if (error && error.data) {
+                    if (angular.isString(error.data)) {
+                        msg = error.data;
+                    } else if (error.data.message) {
+                        msg = error.data.message;
+                    }
+                }
+                $scope.showToast(msg, 'error');
+            })
+            .finally(function () {
+                $scope.templateDownloadInProgress = false;
+            });
     };
 
     

@@ -30,12 +30,14 @@
 					<i class="fas fa-search search-icon"></i>
 					<input type="text"
 						ng-model="wgMemberSearch"
-						ng-change="onWgMemberSearchChange()"
 						placeholder="Search group members..."
 						ng-disabled="wgMembers.length === 0" />
-					<i class="fas fa-times clear-icon"
+					<button type="button" class="modern-search-bar-clear"
 						ng-if="wgMemberSearch"
-						ng-click="wgMemberSearch = ''; onWgMemberSearchChange()"></i>
+						ng-click="clearWgMemberSearch($event)"
+						aria-label="Clear search">
+						<i class="fas fa-times" aria-hidden="true"></i>
+					</button>
 				</div>
 
 				<div class="modern-table-wrapper" ng-if="wgMembers.length > 0">
@@ -89,12 +91,14 @@
 					<i class="fas fa-search search-icon"></i>
 					<input type="text"
 						ng-model="wgOwnerRoleSearch"
-						ng-change="onWgOwnerRoleSearchChange()"
 						placeholder="Search owned roles..."
 						ng-disabled="wgOwnerRoles.length === 0" />
-					<i class="fas fa-times clear-icon"
+					<button type="button" class="modern-search-bar-clear"
 						ng-if="wgOwnerRoleSearch"
-						ng-click="wgOwnerRoleSearch = ''; onWgOwnerRoleSearchChange()"></i>
+						ng-click="clearWgOwnerRoleSearch($event)"
+						aria-label="Clear search">
+						<i class="fas fa-times" aria-hidden="true"></i>
+					</button>
 				</div>
 
 				<div class="modern-table-wrapper" ng-if="wgOwnerRoles.length > 0">

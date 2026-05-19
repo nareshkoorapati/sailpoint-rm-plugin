@@ -25,6 +25,7 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 		};
 	})*/
 	.controller('RoleController', ['$scope', '$http','$timeout', '$q', function ($scope, $http, $timeout, $q) {
+		let roleOwnerSuggestTimer = null;
 		// Fetch plugin config immediately after controller initializes
 		
 		const csrfToken = PluginHelper.getCsrfToken();
@@ -235,14 +236,110 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 		$scope.roleSearchText = '';
 		$scope.noRolesFound = '';
 
-		$scope.loadData = function () {
-			$scope.isLoading = true;
-			$scope.debugLog("Enter loadData ");
-			if ($scope.allColumns.length === 0) {
-				$scope.loadColumns();
+		$scope.roleTypeFilter = 'all';
+		$scope.roleOwnerId = null;
+		$scope.roleOwnerLabel = '';
+		$scope.roleOwnerSearch = '';
+		$scope.roleOwnerHits = [];
+		$scope.roleRequestableFilter = 'all';
+		$scope.roleExtendedAttrSearch = '';
+		$scope.roleExtendedAttrDraft = '';
+		$scope.showRoleMoreFilters = false;
+		$scope.showRoleTypeDropdown = false;
+		$scope.showRoleOwnerDropdown = false;
+		$scope.showRoleRequestableDropdown = false;
+		$scope.roleOwnerShowMinHint = true;
+		$scope.roleOwnerShowNoResults = false;
+
+		$scope.$watchGroup(['roleOwnerSearch', 'roleOwnerHits'], function () {
+			const t = String($scope.roleOwnerSearch || '').trim();
+			const hits = $scope.roleOwnerHits;
+			const n = angular.isArray(hits) ? hits.length : 0;
+			$scope.roleOwnerShowMinHint = t.length < 2;
+			$scope.roleOwnerShowNoResults = t.length >= 2 && n === 0;
+		});
+
+		$scope.roleTypeButtonLabel = function () {
+			if ($scope.roleTypeFilter === 'it') {
+				return 'IT';
 			}
-			$scope.updatePageBounds();
-			$scope.debugLog('Loading roles with pagination: currentPage', $scope.currentPage, 'pageSize', $scope.pageSize);
+			if ($scope.roleTypeFilter === 'business') {
+				return 'Business';
+			}
+			return 'All';
+		};
+
+		$scope.roleRequestableButtonLabel = function () {
+			if ($scope.roleRequestableFilter === 'true') {
+				return 'True';
+			}
+			if ($scope.roleRequestableFilter === 'false') {
+				return 'False';
+			}
+			return 'All';
+		};
+
+		$scope.roleOwnerButtonLabel = function () {
+			if (!$scope.roleOwnerId) {
+				return 'Any';
+			}
+			const s = ($scope.roleOwnerLabel || '').trim();
+			if (s.length > 36) {
+				return s.substring(0, 33) + '…';
+			}
+			return s;
+		};
+
+		$scope.toggleRoleTypeDropdown = function () {
+			if ($scope.showRoleTypeDropdown) {
+				$scope.showRoleTypeDropdown = false;
+				return;
+			}
+			$scope.showRoleOwnerDropdown = false;
+			$scope.showRoleRequestableDropdown = false;
+			$scope.showRoleMoreFilters = false;
+			$scope.showRoleTypeDropdown = true;
+		};
+
+		$scope.toggleRoleOwnerDropdown = function () {
+			if ($scope.showRoleOwnerDropdown) {
+				$scope.showRoleOwnerDropdown = false;
+				return;
+			}
+			$scope.showRoleTypeDropdown = false;
+			$scope.showRoleRequestableDropdown = false;
+			$scope.showRoleMoreFilters = false;
+			$scope.showRoleOwnerDropdown = true;
+			// Run after digest so ng-if panel exists; debounced helper sends request when q >= 2 chars
+			$timeout(function () {
+				$scope.suggestRoleOwner($scope.roleOwnerSearch, true);
+			}, 0);
+		};
+
+		$scope.toggleRoleRequestableDropdown = function () {
+			if ($scope.showRoleRequestableDropdown) {
+				$scope.showRoleRequestableDropdown = false;
+				return;
+			}
+			$scope.showRoleTypeDropdown = false;
+			$scope.showRoleOwnerDropdown = false;
+			$scope.showRoleMoreFilters = false;
+			$scope.showRoleRequestableDropdown = true;
+		};
+
+		$scope.selectRoleType = function (v) {
+			$scope.roleTypeFilter = v;
+			$scope.showRoleTypeDropdown = false;
+			$scope.applyRoleFilters();
+		};
+
+		$scope.selectRoleRequestable = function (v) {
+			$scope.roleRequestableFilter = v;
+			$scope.showRoleRequestableDropdown = false;
+			$scope.applyRoleFilters();
+		};
+
+		$scope.buildRolesRequestParams = function (extra) {
 			const params = {
 				start: $scope.startIndex || 0,
 				limit: $scope.pageSize || 10
@@ -251,18 +348,61 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 				params.sort = $scope.sortColumn;
 				params.dir = $scope.sortDirection;
 			}
-			
-			if($scope.roleSearchText && $scope.roleSearchText.length >= 3) {
-				params.query = $scope.roleSearchText;
+			const q = ($scope.roleSearchText || '').trim();
+			if (q.length >= 3) {
+				params.query = q;
+			}
+			if ($scope.roleTypeFilter && $scope.roleTypeFilter !== 'all') {
+				params.roleType = $scope.roleTypeFilter;
+			}
+			if ($scope.roleOwnerId) {
+				params.ownerId = $scope.roleOwnerId;
+			}
+			if ($scope.roleRequestableFilter === 'true' || $scope.roleRequestableFilter === 'false') {
+				params.requestable = $scope.roleRequestableFilter;
+			}
+			const ext = ($scope.roleExtendedAttrSearch || '').trim();
+			if (ext.length >= 2) {
+				params.extendedAttrQuery = ext;
+			}
+			if (extra && typeof extra === 'object') {
+				Object.keys(extra).forEach(function (k) {
+					params[k] = extra[k];
+				});
+			}
+			return params;
+		};
+
+		$scope.loadData = function () {
+			$scope.isLoading = true;
+			$scope.debugLog("Enter loadData ");
+			if ($scope.allColumns.length === 0) {
+				$scope.loadColumns();
+			}
+			$scope.updatePageBounds();
+			$scope.debugLog('Loading roles with pagination: currentPage', $scope.currentPage, 'pageSize', $scope.pageSize);
+
+			const q = ($scope.roleSearchText || '').trim();
+			if (cancelRoleSearch) {
+				cancelRoleSearch.resolve();
+			}
+			let timeoutPromise = null;
+			if (q.length >= 3) {
+				cancelRoleSearch = $q.defer();
+				timeoutPromise = cancelRoleSearch.promise;
 			}
 
-			//TOD: how to send header token with $http GET
-			$http({
+			const req = {
 				method: 'GET',
 				url: PluginHelper.getPluginRestUrl("rolemanagement/roles"),
-				params: params,
+				params: $scope.buildRolesRequestParams(),
 				headers: $scope.headerToken.headers
-			}).then(function success(response) {
+			};
+			if (timeoutPromise) {
+				req.timeout = timeoutPromise;
+			}
+
+			$http(req).then(function success(response) {
 				const data = response.data;
 				$scope.roles = data.objects || [];
 				if ($scope.sortColumn === 'complaineScore') {
@@ -270,8 +410,10 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 				}
 				$scope.totalCount = data.total || 0;
 				$scope.updatePageBounds();
-				if ($scope.totalCount === 0){
-					$scope.noRolesFound = "You don't own any roles";
+				if ($scope.totalCount === 0) {
+					$scope.noRolesFound = q.length >= 3
+						? 'No roles found with the given search'
+						: "You don't own any roles";
 				}
 				$scope.isLoading = false;
 			}, function error() {
@@ -280,81 +422,190 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 				$scope.isLoading = false;
 			});
 		};
-		
-		
-		
+
 		$scope.handleRoleSearchKey = function ($event) {
-			$scope.debugLog("Enter handleRoleSearchKey ",$event," and search text ",$scope.roleSearchText);
-		  if (($event.key === 13||$event.key === 'Enter') && $scope.roleSearchText.length >= 3) {
-		    $scope.performRoleSearch();
-		  }
+			$scope.debugLog("Enter handleRoleSearchKey ", $event, " and search text ", $scope.roleSearchText);
+			if (($event.key === 13 || $event.key === 'Enter') && $scope.roleSearchText.length >= 3) {
+				$scope.currentPage = 1;
+				$scope.loadData();
+			}
 		};
-		
+
 		$scope.clearSearch = function () {
-		  $scope.roleSearchText = "";
-		  $scope.triggerRoleSearch();
+			$scope.roleSearchText = '';
+			$scope.currentPage = 1;
+			$scope.loadData();
 		};
-		
+
 		$scope.triggerRoleSearch = function () {
-		  console.log("trigger role search ",$scope.roleSearchText);
-		  if ($scope.roleSearchText.length >= 3) {
-		    $scope.performRoleSearch();
-		  }
-		  if ($scope.roleSearchText.length === 0) {
-		    $scope.loadData();
-		  }
+			const t = ($scope.roleSearchText || '').trim();
+			if (t.length > 0 && t.length < 3) {
+				return;
+			}
+			$scope.currentPage = 1;
+			$scope.loadData();
+		};
+
+		$scope.applyRoleFilters = function () {
+			$scope.currentPage = 1;
+			$scope.loadData();
+		};
+
+		$scope.clearRoleFilters = function () {
+			if (roleOwnerSuggestTimer) {
+				$timeout.cancel(roleOwnerSuggestTimer);
+				roleOwnerSuggestTimer = null;
+			}
+			$scope.roleTypeFilter = 'all';
+			$scope.roleOwnerId = null;
+			$scope.roleOwnerLabel = '';
+			$scope.roleOwnerSearch = '';
+			$scope.roleOwnerHits = [];
+			$scope.roleRequestableFilter = 'all';
+			$scope.roleExtendedAttrSearch = '';
+			$scope.roleExtendedAttrDraft = '';
+			$scope.showRoleMoreFilters = false;
+			$scope.showRoleTypeDropdown = false;
+			$scope.showRoleOwnerDropdown = false;
+			$scope.showRoleRequestableDropdown = false;
+			$scope.currentPage = 1;
+			$scope.loadData();
+		};
+
+		$scope.toggleRoleMoreFilters = function () {
+			if ($scope.showRoleMoreFilters) {
+				$scope.showRoleMoreFilters = false;
+				return;
+			}
+			$scope.showRoleTypeDropdown = false;
+			$scope.showRoleOwnerDropdown = false;
+			$scope.showRoleRequestableDropdown = false;
+			$scope.showRoleMoreFilters = true;
+			$scope.roleExtendedAttrDraft = $scope.roleExtendedAttrSearch || '';
+		};
+
+		$scope.applyRoleMoreFilters = function () {
+			$scope.roleExtendedAttrSearch = ($scope.roleExtendedAttrDraft || '').trim();
+			$scope.showRoleMoreFilters = false;
+			$scope.applyRoleFilters();
+		};
+
+		$scope.clearRoleMoreFilters = function () {
+			$scope.roleExtendedAttrDraft = '';
+			$scope.roleExtendedAttrSearch = '';
+			$scope.showRoleMoreFilters = false;
+			$scope.applyRoleFilters();
+		};
+
+		$scope.suggestRoleOwner = function (typed, skipDebounce) {
+			if (roleOwnerSuggestTimer) {
+				$timeout.cancel(roleOwnerSuggestTimer);
+				roleOwnerSuggestTimer = null;
+			}
+			const run = function () {
+				const q = typed !== undefined && typed !== null
+					? String(typed).trim()
+					: String($scope.roleOwnerSearch || '').trim();
+				if (q.length < 2) {
+					$scope.roleOwnerHits = [];
+					return;
+				}
+				$http({
+					method: 'GET',
+					url: PluginHelper.getPluginRestUrl('rolemanagement/identities/suggest'),
+					params: { q: q, limit: 15, includeWorkgroups: true },
+					headers: $scope.headerToken.headers
+				}).then(
+					function success(res) {
+						let rows = res.data;
+						if (!angular.isArray(rows)) {
+							rows = [];
+						}
+						$scope.roleOwnerHits = rows;
+					},
+					function error() {
+						$scope.roleOwnerHits = [];
+					}
+				);
+			};
+			const delay = skipDebounce ? 0 : 250;
+			roleOwnerSuggestTimer = $timeout(function () {
+				roleOwnerSuggestTimer = null;
+				run();
+			}, delay);
+		};
+
+		$scope.selectRoleOwner = function (hit) {
+			if (!hit || !hit.id) {
+				return;
+			}
+			$scope.roleOwnerId = hit.id;
+			var kind = hit.workgroup ? 'Workgroup' : 'Identity';
+			$scope.roleOwnerLabel = (hit.displayName || hit.name || '');
+			$scope.roleOwnerSearch = '';
+			$scope.roleOwnerHits = [];
+			$scope.showRoleOwnerDropdown = false;
+			$scope.applyRoleFilters();
+		};
+
+		$scope.clearRoleOwner = function () {
+			if (roleOwnerSuggestTimer) {
+				$timeout.cancel(roleOwnerSuggestTimer);
+				roleOwnerSuggestTimer = null;
+			}
+			$scope.roleOwnerId = null;
+			$scope.roleOwnerLabel = '';
+			$scope.roleOwnerSearch = '';
+			$scope.roleOwnerHits = [];
+			$scope.showRoleOwnerDropdown = false;
+			$scope.applyRoleFilters();
 		};
 		
-		$scope.performRoleSearch = function () {
-		  const query = $scope.roleSearchText.trim();
-		
-		  if (query.length < 3) return;
-		
-		  // Cancel previous request
-		  if (cancelRoleSearch) {
-		    cancelRoleSearch.resolve();
-		  }
-		
-		  cancelRoleSearch = $q.defer();
-		  
-		  const params = {
-				start: $scope.startIndex || 0,
-				limit: $scope.pageSize || 10,
-				query: query
-		  };
-			
-		  
+		/** Icons / foot text for role dashboard tiles (match Workgroup overview styling). */
+		$scope.dashboardCardIconStyle = function (card) {
+			const t = (card && card.title ? String(card.title) : '').trim();
+			if (t === 'Total Roles') {
+				return { wrap: 'rm-metric-icon--cyan', icon: 'fa-layer-group' };
+			}
+			if (t === 'Enabled/Requestable') {
+				return { wrap: 'rm-metric-icon--indigo', icon: 'fa-circle-check' };
+			}
+			if (t === 'Enabled/Non-Requestable') {
+				return { wrap: 'rm-metric-icon--slate', icon: 'fa-lock' };
+			}
+			if (t === 'Disabled') {
+				return { wrap: 'rm-metric-icon--rose', icon: 'fa-ban' };
+			}
+			return { wrap: 'rm-metric-icon--soft', icon: 'fa-chart-pie' };
+		};
+
+		$scope.dashboardCardFoot = function (card) {
+			const t = (card && card.title ? String(card.title) : '').trim();
+			if (t === 'Total Roles') {
+				return 'IT & business roles';
+			}
+			if (t === 'Enabled/Requestable') {
+				return 'Active & requestable';
+			}
+			if (t === 'Enabled/Non-Requestable') {
+				return 'Active, not requestable';
+			}
+			if (t === 'Disabled') {
+				return 'Inactive roles';
+			}
+			return '';
+		};
+
+		$scope.filterByCard = function (card) {
+			const params = $scope.buildRolesRequestParams();
+			if (card && card.filter) {
+				params.filter = card.filter;
+			}
 		  $http({
 				method: 'GET',
 				url: PluginHelper.getPluginRestUrl("rolemanagement/roles"),
 				params: params,
-				timeout: cancelRoleSearch.promise
-			}).then(function success(response) {
-				const data = response.data;
-				$scope.roles = data.objects || [];
-				$scope.totalCount = data.total || 0;
-				if ($scope.totalCount === 0){
-					$scope.noRolesFound = "No Roles found with the given search";
-				}
-				$scope.currentPageInput = 1;
-				$scope.updatePageBounds();
-			}, function error() {
-				$scope.roles = [];
-				$scope.totalCount = 0;
-			});
-		};
-		
-		$scope.filterByCard = function (card) {
-			const params = {
-				start: $scope.startIndex || 0,
-				limit: $scope.pageSize || 10,
-				filter: card.filter
-		  };
-		  $http({
-				method: 'GET',
-				url: PluginHelper.getPluginRestUrl("rolemanagement/roles"),
-				params: params
-				
+				headers: $scope.headerToken.headers
 			}).then(function success(response) {
 				const data = response.data;
 				$scope.roles = data.objects || [];

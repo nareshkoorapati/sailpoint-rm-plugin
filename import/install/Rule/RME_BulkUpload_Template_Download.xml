@@ -1,154 +1,107 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
 <Rule created="1765141266776" id="c0a8050b9ae51390819afa9e41580b9b" language="beanshell" modified="1765143395591" name="CNC_RME_BulkUpload_Template_Download">
-  <Description>This is an example rule for selecting who must supply a password to impersonate another identity.
-
-  </Description>
-  <Signature returnType="java.lang.Boolean">
+  <Description>Builds bulk-upload template metadata for IT or Business roles. Plugin Java code converts this to Excel (.xlsx) with column dropdowns for allowed values.</Description>
+  <Signature returnType="java.util.Map">
     <Inputs>
       <Argument name="context">
         <Description>
           A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
         </Description>
       </Argument>
+      <Argument name="roleType">
+        <Description>Role type for the template: "it" or "business".</Description>
+      </Argument>
     </Inputs>
   </Signature>
   <Source>
 
-  import sailpoint.object.Capability;
-  import sailpoint.object.Identity;
-  import sailpoint.object.Identity.CapabilityManager;
-  import sailpoint.object.QueryOptions;
-  import sailpoint.object.Bundle;
-  import sailpoint.object.Filter;
+  import java.util.ArrayList;
+  import java.util.HashMap;
+  import java.util.List;
+  import java.util.Map;
+
   import sailpoint.object.ObjectAttribute;
   import sailpoint.object.ObjectConfig;
-
-  import sailpoint.api.ObjectUtil;
-
   import sailpoint.object.RoleTypeDefinition;
-
   import sailpoint.tools.Util;
 
-  String newLine = System.lineSeparator();
-
-
-  //String loggedInUser = "spadmin";
-  //List roleIds = null;
-
-
-
-  public void log(String message) {    
-    log.error(logPrefix+" "+message);
+  String roleTypeArg = roleType != null ? roleType.toString().trim().toLowerCase() : "it";
+  boolean isItRole = "it".equals(roleTypeArg);
+  boolean isBusinessRole = "business".equals(roleTypeArg);
+  if (!isItRole &amp;&amp; !isBusinessRole) {
+    throw new IllegalArgumentException("roleType must be 'it' or 'business'");
   }
-
-
-
-
-
-
-  List typeList = Util.csvToList("it,business");
-
 
   ObjectConfig objConfig = context.getObjectByName(ObjectConfig.class, "Bundle");
-  RoleTypeDefinition itDef = objConfig.getRoleType("it");
-  RoleTypeDefinition buzDef = objConfig.getRoleType("business");
-
-  List itDisAllowedAttributes = itDef.getDisallowedAttributes();
-  List buzDisAllowedAttributes = buzDef.getDisallowedAttributes();	
-
-
+  RoleTypeDefinition roleDef = objConfig.getRoleType(isItRole ? "it" : "business");
+  List disAllowedAttributes = roleDef.getDisallowedAttributes();
   List objectAttributes = objConfig.getObjectAttributes();
 
-  //List extendedAttributes = objConfig.getExtendedAttributeList();
-  String header = "Role Name,DisplayName,Type,Owner,Description,Disabled";
-  StringBuilder sb = new StringBuilder();
+  List roleHeader = new ArrayList();
+  roleHeader.add("Role Name");
+  roleHeader.add("DisplayName");
+  roleHeader.add("Type");
+  roleHeader.add("Owner");
+  roleHeader.add("Description");
+  roleHeader.add("Disabled");
 
-
-
-  //IT Roles line
-
-  StringBuilder itRoleSb = new StringBuilder();
-  StringBuilder buzRoleSb = new StringBuilder();
-
-  for(ObjectAttribute objAttr : Util.safeIterable(objectAttributes)) {
-    
-    if (!Util.nullSafeContains(itDisAllowedAttributes,objAttr.getName())) {
-      itRoleSb.append(","+objAttr.getName());
+  for (ObjectAttribute objAttr : Util.safeIterable(objectAttributes)) {
+    if (!Util.nullSafeContains(disAllowedAttributes, objAttr.getName())) {
+      roleHeader.add(objAttr.getName());
     }
-
-    if (!Util.nullSafeContains(buzDisAllowedAttributes,objAttr.getName())) {
-      buzRoleSb.append(","+objAttr.getName());
-    }
-    
   }
 
-  itRoleSb.append(",AddEntitlement,RemoveEntitlement");
-  buzRoleSb.append(",AddITRoles,RemoveITRoles");
+  if (isItRole) {
+    roleHeader.add("AddEntitlement");
+    roleHeader.add("RemoveEntitlement");
+  } else {
+    roleHeader.add("AddITRoles");
+    roleHeader.add("RemoveITRoles");
+  }
 
-		
+  Map columnValidations = new HashMap();
 
+  List typeValues = new ArrayList();
+  typeValues.add(isItRole ? "it" : "business");
+  columnValidations.put("Type", typeValues);
 
+  List disabledValues = new ArrayList();
+  disabledValues.add("TRUE");
+  disabledValues.add("FALSE");
+  columnValidations.put("Disabled", disabledValues);
 
-  StringBuilder defSb = new StringBuilder();
-  defSb.append("Attribute Name,Type,Required,Allowed Values");
-
-
-  for(ObjectAttribute objAttr : Util.safeIterable(objectAttributes)) {
-    defSb.append(newLine);
-    defSb.append(objAttr.getName());
-    defSb.append(",");
-    if (objAttr.getType() == null) {
-      defSb.append("string");
-    }
-    else {
-      defSb.append(objAttr.getType());
-    }
-
-    defSb.append(",");
-    defSb.append(objAttr.isRequired());
-    defSb.append(",");
-
-    if ("boolean".equals(objAttr.getType())) {
-      defSb.append("TRUE/FALSE");
-    }
-    else {
-      List allowedValues = objAttr.getAllowedValues();
-      if (allowedValues != null &amp;&amp; !allowedValues.isEmpty()) {
-        for(String value : allowedValues) {
-          defSb.append(value);
-          defSb.append(newLine);
-          defSb.append(",,,");
+  for (ObjectAttribute objAttr : Util.safeIterable(objectAttributes)) {
+    if (!Util.nullSafeContains(disAllowedAttributes, objAttr.getName())) {
+      List allowedList = new ArrayList();
+      if ("boolean".equals(objAttr.getType())) {
+        allowedList.add("TRUE");
+        allowedList.add("FALSE");
+      } else {
+        List allowedValues = objAttr.getAllowedValues();
+        if (allowedValues != null &amp;&amp; !allowedValues.isEmpty()) {
+          for (Object valueObj : allowedValues) {
+            if (valueObj != null) {
+              String value = String.valueOf(valueObj).trim();
+              if (value.length() &gt; 0) {
+                allowedList.add(value);
+              }
+            }
+          }
         }
       }
+      if (!allowedList.isEmpty()) {
+        columnValidations.put(objAttr.getName(), allowedList);
+      }
     }
-
-
-
-
-
   }
 
-  
-  //return defSb.toString();
-  sb.append("IT Role Upadte Header"+newLine);
-  
-  sb.append(header+itRoleSb.toString());
-  sb.append(newLine+newLine);
-  
-  sb.append("Business Role Update Header"+newLine);
-  sb.append(header+buzRoleSb.toString());
-  sb.append(newLine+newLine);
-  
-  sb.append("Attributes Definitions and Allowed Values"+newLine);
-  sb.append(defSb.toString());
-  
-  
+  Map result = new HashMap();
+  result.put("roleHeader", roleHeader);
+  result.put("columnValidations", columnValidations);
+  result.put("rolesSheetName", isItRole ? "IT Roles" : "Business Roles");
+  result.put("roleType", roleTypeArg);
 
-
-
-
-
-  return sb.toString();			
+  return result;
   </Source>
 </Rule>

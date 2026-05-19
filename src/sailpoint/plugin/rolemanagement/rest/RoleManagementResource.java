@@ -58,12 +58,17 @@ public class RoleManagementResource extends BasePluginResource {
 			@QueryParam("sort") String sort,
 			@QueryParam("dir") String dir,
 			@QueryParam("query") String query,
-			@QueryParam("filter") String filter) {
+			@QueryParam("filter") String filter,
+			@QueryParam("roleType") String roleType,
+			@QueryParam("ownerId") String ownerId,
+			@QueryParam("requestable") String requestable,
+			@QueryParam("extendedAttrQuery") String extendedAttrQuery) {
 		log("Enter getRoles with start=" + start + ", limit=" + limit+
 				", sort=" + sort + ", dir=" + dir+", query "+query);
 
 		try {
-			Map<String, Object> roles = getRoleService().getRoles(getLoggedInUserName(), start, limit, sort, dir, query,filter);
+			Map<String, Object> roles = getRoleService().getRoles(getLoggedInUserName(), start, limit, sort, dir,
+					query, filter, roleType, ownerId, requestable, extendedAttrQuery);
 			
 			return Response.ok(roles).build();
 		} catch (Exception e) {
@@ -109,6 +114,7 @@ public class RoleManagementResource extends BasePluginResource {
 			@QueryParam("limit") @DefaultValue("25") int limit,
 			@QueryParam("query") String query,
 			@QueryParam("memberIds") String memberIds,
+			@QueryParam("moreFilter") String moreFilter,
 			@QueryParam("sort") @DefaultValue("name") String sort,
 			@QueryParam("dir") @DefaultValue("ASC") String dir) throws GeneralException {
 		boolean roleAdmin = getRoleService().isRoleAdmin();
@@ -125,7 +131,7 @@ public class RoleManagementResource extends BasePluginResource {
 			}
 		}
 		Map<String, Object> data = getIdentityService()
-				.searchWorkgroups(start, limit, query, sort, dir, roleAdmin, memberIdList);
+				.searchWorkgroups(start, limit, query, sort, dir, roleAdmin, memberIdList, moreFilter);
 		return Response.ok(data).build();
 	}
 
@@ -157,8 +163,9 @@ public class RoleManagementResource extends BasePluginResource {
 	@Path("/identities/suggest")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response suggestIdentities(@QueryParam("q") String q,
-			@QueryParam("limit") @DefaultValue("25") int limit) throws GeneralException {
-		List<Map<String, Object>> rows = getIdentityService().suggestIdentities(q, limit);
+			@QueryParam("limit") @DefaultValue("25") int limit,
+			@QueryParam("includeWorkgroups") @DefaultValue("false") boolean includeWorkgroups) throws GeneralException {
+		List<Map<String, Object>> rows = getIdentityService().suggestIdentities(q, limit, includeWorkgroups);
 		return Response.ok(rows).build();
 	}
 

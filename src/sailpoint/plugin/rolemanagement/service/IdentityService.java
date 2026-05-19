@@ -49,7 +49,7 @@ public class IdentityService {
 	 * When {@code roleAdmin} is false, results are limited to workgroups the logged-in user belongs to.
 	 */
 	public Map<String, Object> searchWorkgroups(int start, int limit, String query, String sort, String dir,
-			boolean roleAdmin, List<String> memberIds) throws GeneralException {
+			boolean roleAdmin, List<String> memberIds, String moreFilter) throws GeneralException {
 		Map<String, Object> result = new HashMap<>();
 		QueryOptions ops = new QueryOptions();
 		ops.addFilter(Filter.eq("workgroup", true));
@@ -64,6 +64,14 @@ public class IdentityService {
 				allowedWgIds = memberScoped;
 			} else {
 				allowedWgIds.retainAll(memberScoped);
+			}
+		}
+		Set<String> moreFilterIds = workgroupIdsForMoreFilter(moreFilter);
+		if (moreFilterIds != null) {
+			if (allowedWgIds == null) {
+				allowedWgIds = moreFilterIds;
+			} else {
+				allowedWgIds.retainAll(moreFilterIds);
 			}
 		}
 		if (allowedWgIds != null) {
@@ -121,6 +129,92 @@ public class IdentityService {
 		result.put("start", start);
 		result.put("limit", limit);
 		return result;
+	}
+
+	private Set<String> workgroupIdsForMoreFilter(String moreFilter) throws GeneralException {
+		if (Util.isNullOrEmpty(moreFilter)) {
+			return null;
+		}
+		String key = moreFilter.trim();
+		if ("assignedToRoles".equalsIgnoreCase(key)) {
+			return workgroupIdsAssignedToRoles();
+		}
+		if ("singleMember".equalsIgnoreCase(key)) {
+			return workgroupIdsSingleMember();
+		}
+		if ("termedMember".equalsIgnoreCase(key)) {
+			return workgroupIdsWithTermedMembers();
+		}
+		return null;
+	}
+
+	private Set<String> workgroupIdsAssignedToRoles() throws GeneralException {
+		Set<String> ids = new LinkedHashSet<>();
+		QueryOptions qo = new QueryOptions();
+		qo.addFilter(Filter.eq("owner.workgroup", true));
+		Iterator<Bundle> itr = _context.search(Bundle.class, qo);
+		if (itr != null) {
+			try {
+				while (itr.hasNext()) {
+					Bundle b = itr.next();
+					Identity owner = b != null ? b.getOwner() : null;
+					if (owner != null && owner.getId() != null) {
+						ids.add(owner.getId());
+					}
+				}
+			} finally {
+				Util.flushIterator(itr);
+			}
+		}
+		return ids;
+	}
+
+	private Set<String> workgroupIdsSingleMember() throws GeneralException {
+		Set<String> ids = new LinkedHashSet<>();
+		QueryOptions qo = new QueryOptions();
+		qo.setCloneResults(true);
+		String sql = "sql:SELECT workgroup FROM spt_identity_workgroups GROUP BY workgroup HAVING COUNT(DISTINCT identity_id) = 1";
+		Iterator<?> itr = _context.search(sql, new HashMap<>(), qo);
+		if (itr != null) {
+			try {
+				while (itr.hasNext()) {
+					Object row = itr.next();
+					String id = sqlFirstCellAsString(row);
+					if (Util.isNotNullOrEmpty(id)) {
+						ids.add(id);
+					}
+				}
+			} finally {
+				Util.flushIterator(itr);
+			}
+		}
+		return ids;
+	}
+
+	private Set<String> workgroupIdsWithTermedMembers() throws GeneralException {
+		Set<String> ids = new LinkedHashSet<>();
+		QueryOptions qo = new QueryOptions();
+		qo.addFilter(Filter.eq("inactive", true));
+		Iterator<Identity> itr = _context.search(Identity.class, qo);
+		if (itr != null) {
+			try {
+				while (itr.hasNext()) {
+					Identity idn = itr.next();
+					List<Identity> wgs = idn != null ? idn.getWorkgroups() : null;
+					if (wgs == null) {
+						continue;
+					}
+					for (Identity wg : wgs) {
+						if (wg != null && wg.isWorkgroup() && wg.getId() != null) {
+							ids.add(wg.getId());
+						}
+					}
+				}
+			} finally {
+				Util.flushIterator(itr);
+			}
+		}
+		return ids;
 	}
 
 	/**
@@ -276,6 +370,20 @@ public class IdentityService {
 		return 0;
 	}
 
+	private static String sqlFirstCellAsString(Object row) {
+		if (row == null) {
+			return null;
+		}
+		if (row instanceof Object[]) {
+			Object[] cells = (Object[]) row;
+			if (cells.length == 0 || cells[0] == null) {
+				return null;
+			}
+			return String.valueOf(cells[0]);
+		}
+		return String.valueOf(row);
+	}
+
 	private List<String> workgroupIdsForLoggedInUser() throws GeneralException {
 		if (loggedInIdentity == null) {
 			return Collections.emptyList();
@@ -341,13 +449,21 @@ public class IdentityService {
 	}
 
 	/**
-	 * Typeahead search for non-workgroup identities (potential owners / members).
+	 * Typeahead search for identities. When {@code includeWorkgroups} is false, workgroups are excluded
+	 * (typical member pickers). When true, both person identities and workgroup identities are returned;
+	 * each row includes a boolean {@code workgroup}.
 	 */
-	public List<Map<String, Object>> suggestIdentities(String query, int limit) throws GeneralException {
+	public List<Map<String, Object>> suggestIdentities(String query, int limit, boolean includeWorkgroups)
+			throws GeneralException {
 		int lim = limit <= 0 ? 25 : Math.min(limit, 50);
 		QueryOptions ops = new QueryOptions();
-		ops.addFilter(Filter.eq("workgroup", false));
-		ops.addFilter(Filter.eq("inactive", false));
+		if (!includeWorkgroups) {
+			ops.addFilter(Filter.eq("workgroup", false));
+		}
+		else {
+			ops.addFilter(Filter.in("workgroup", Util.csvToList("true,false")));
+		}
+		//ops.addFilter(Filter.eq("inactive", false));
 		if (Util.isNotNullOrEmpty(query)) {
 			String q = query.trim();
 			ops.addFilter(Filter.or(Filter.like("name", q), Filter.like("displayName", q)));
@@ -368,6 +484,7 @@ public class IdentityService {
 					row.put("displayName", idn.getDisplayableName());
 					row.put("firstname", idn.getFirstname());
 					row.put("lastname", idn.getLastname());
+					row.put("workgroup", idn.isWorkgroup());
 					rows.add(row);
 				}
 			} finally {
@@ -375,6 +492,11 @@ public class IdentityService {
 			}
 		}
 		return rows;
+	}
+
+	/** Backward-compatible suggest (non-workgroup identities only). */
+	public List<Map<String, Object>> suggestIdentities(String query, int limit) throws GeneralException {
+		return suggestIdentities(query, limit, false);
 	}
 
 	/**

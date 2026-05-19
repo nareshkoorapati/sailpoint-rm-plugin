@@ -210,7 +210,8 @@ public class RoleService {
         return true; // numbers, booleans, etc.
     }
 	
-	public Map<String,Object> getRoles(String loggedInUser, int start, int limit, String sort, String dir, String query, String filter) throws GeneralException{
+	public Map<String,Object> getRoles(String loggedInUser, int start, int limit, String sort, String dir, String query, String filter,
+			String roleType, String ownerId, String requestable, String extendedAttrQuery) throws GeneralException{
 		log(logPrefix+"Enter getRoles with loggedInUser");
 		Map<String,Object> rolesMap = new HashMap<>();
 		rolesMap.put("start", start);
@@ -236,6 +237,7 @@ public class RoleService {
 			Filter f = Filter.compile(filter);
 			ops.addFilter(f);
 		}
+		appendRoleFacetFilters(ops, roleType, ownerId, requestable, extendedAttrQuery);
 		ops.addFilter(QueryOptions.getOwnerScopeFilterUsingSubqueries(ctx.getObjectByName(Identity.class, loggedInUser),"owner"));
 		rolesMap.put("total", ctx.countObjects(Bundle.class, ops));
 		ops.setResultLimit(limit);
@@ -260,6 +262,71 @@ public class RoleService {
 		log(logPrefix+"getRiles RoleMap "+rolesMap);
 		return rolesMap;
 	}
+
+	private void appendRoleFacetFilters(QueryOptions ops, String roleType, String ownerId, String requestable,
+			String extendedAttrQuery) throws GeneralException {
+		if (Util.isNotNullOrEmpty(roleType)) {
+			String rt = roleType.trim();
+			if (Constants.IT.equalsIgnoreCase(rt)) {
+				ops.addFilter(Filter.eq("type", Constants.IT));
+			} else if (Constants.BUSINESS.equalsIgnoreCase(rt)) {
+				ops.addFilter(Filter.eq("type", Constants.BUSINESS));
+			}
+		}
+		if (Util.isNotNullOrEmpty(ownerId)) {
+			ops.addFilter(Filter.eq("owner.id", ownerId.trim()));
+		}
+		if (Util.isNotNullOrEmpty(requestable)) {
+			String r = requestable.trim();
+			if ("true".equalsIgnoreCase(r)) {
+				ops.addFilter(Filter.eq("privileged", true));
+			} else if ("false".equalsIgnoreCase(r)) {
+				ops.addFilter(Filter.eq("privileged", false));
+			}
+		}
+		Filter ext = buildExtendedAttributesSearchFilter(extendedAttrQuery);
+		if (ext != null) {
+			ops.addFilter(ext);
+		}
+	}
+
+	private Filter buildExtendedAttributesSearchFilter(String q) throws GeneralException {
+		if (Util.isNullOrEmpty(q)) {
+			return null;
+		}
+		String needle = q.trim();
+		if (needle.length() < 2) {
+			return null;
+		}
+		ObjectConfig oc = _context.getObjectByName(ObjectConfig.class, "Bundle");
+		if (oc == null) {
+			return null;
+		}
+		List<ObjectAttribute> attrs = oc.getObjectAttributes();
+		if (attrs == null || attrs.isEmpty()) {
+			return null;
+		}
+		List<Filter> parts = new ArrayList<>();
+		for (ObjectAttribute attr : attrs) {
+			if (attr == null) {
+				continue;
+			}
+			String name = attr.getName();
+			if (Util.isNullOrEmpty(name)) {
+				continue;
+			}
+			try {
+				parts.add(Filter.like("attributes." + name, needle, Filter.MatchMode.ANYWHERE));
+			} catch (Exception ex) {
+				log(logPrefix + "extended attr filter skip " + name + ": " + ex.getMessage());
+			}
+		}
+		if (parts.isEmpty()) {
+			return null;
+		}
+		return parts.size() == 1 ? parts.get(0) : Filter.or(parts.toArray(new Filter[0]));
+	}
+
 	public Map<String, Object> getRolesOwnedByWorkgroup(String workgroupId) throws GeneralException {
 		Map<String, Object> returnMap = new HashMap<String,Object>();
 		List<Map<String,Object>> roles = new ArrayList<Map<String,Object>>();

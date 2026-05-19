@@ -23,30 +23,181 @@
 
 
 
-	<!-- Dashboard metrics -->
-	<div class="rm-dashboard-metrics">
-	  <div class="rm-metric-card rm-metric-card--interactive" ng-repeat="card in dashboardCards" ng-click="filterByCard(card)">
-	    <div class="rm-metric-icon rm-metric-icon--soft"><i class="fas fa-chart-pie" aria-hidden="true"></i></div>
-	    <div class="rm-metric-body">
-	      <span class="rm-metric-label">{{ card.title }}</span>
-	      <span class="rm-metric-value" ng-if="card.count !== null">{{ card.count | number }}</span>
-	    </div>
-	    <i class="fas fa-chevron-right rm-metric-chevron" aria-hidden="true"></i>
-	  </div>
+	<!-- Overview metrics: same structure as Workgroup Management -->
+	<div class="wg-dashboard-section">
+		<h3 class="wg-dashboard-heading">Overview</h3>
+		<div class="rm-dashboard-metrics wg-dashboard-metrics">
+			<div class="rm-metric-card rm-metric-card--interactive rm-dashboard-metric-card--role"
+				ng-repeat="card in dashboardCards"
+				ng-click="filterByCard(card)">
+				<div class="rm-metric-icon" ng-class="dashboardCardIconStyle(card).wrap">
+					<i class="fas" ng-class="dashboardCardIconStyle(card).icon" aria-hidden="true"></i>
+				</div>
+				<div class="rm-metric-body">
+					<span class="rm-metric-label">{{ card.title }}</span>
+					<span class="rm-metric-value" ng-if="card.count !== null">{{ card.count | number }}</span>
+					<span class="rm-metric-foot" ng-if="dashboardCardFoot(card)">{{ dashboardCardFoot(card) }}</span>
+				</div>
+				<i class="fas fa-chevron-right rm-metric-chevron" aria-hidden="true"></i>
+			</div>
+		</div>
 	</div>
 
-<div class="modern-search-bar">
-  <i class="fas fa-search search-icon"></i>
-  <input class="searchRoles" type="text"
-         placeholder="Search roles with name or display name..."
-         ng-model="roleSearchText"
-         ng-keyup="handleRoleSearchKey($event)"
-         ng-change="triggerRoleSearch()"
-         ng-model-options="{ debounce: 300 }" />
-   <i class="fas fa-times clear-icon"
-     ng-if="roleSearchText"
-     ng-click="clearSearch()">
-  </i>
+<div class="wg-filter-row rm-role-filter-row">
+	<div class="modern-search-bar modern-search-bar--compact modern-search-bar--half">
+		<i class="fas fa-search search-icon"></i>
+		<input class="searchRoles" type="text"
+			placeholder="Search name or display name…"
+			ng-model="roleSearchText"
+			ng-keyup="handleRoleSearchKey($event)"
+			ng-change="triggerRoleSearch()"
+			ng-model-options="{ debounce: 300 }" />
+		<i class="fas fa-times clear-icon"
+			ng-if="roleSearchText"
+			ng-click="clearSearch()">
+		</i>
+	</div>
+
+	<div class="wg-filter-dropdown-wrap">
+		<button type="button" class="wg-filter-btn" ng-click="toggleRoleTypeDropdown()">
+			<span>Type: {{ roleTypeButtonLabel() }}</span>
+			<i class="fas" ng-class="showRoleTypeDropdown ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+		</button>
+		<div class="wg-more-filter-panel" ng-if="showRoleTypeDropdown" ng-click="$event.stopPropagation()">
+			<div class="wg-more-filter-list">
+				<button type="button" class="wg-more-filter-row"
+					ng-class="{ 'wg-more-filter-row--selected': roleTypeFilter === 'all' }"
+					ng-click="selectRoleType('all')">
+					<span class="wg-more-filter-check" aria-hidden="true"><i class="fas fa-check" ng-if="roleTypeFilter === 'all'"></i></span>
+					<span class="wg-more-filter-label">All</span>
+				</button>
+				<button type="button" class="wg-more-filter-row"
+					ng-class="{ 'wg-more-filter-row--selected': roleTypeFilter === 'it' }"
+					ng-click="selectRoleType('it')">
+					<span class="wg-more-filter-check" aria-hidden="true"><i class="fas fa-check" ng-if="roleTypeFilter === 'it'"></i></span>
+					<span class="wg-more-filter-label">IT</span>
+				</button>
+				<button type="button" class="wg-more-filter-row"
+					ng-class="{ 'wg-more-filter-row--selected': roleTypeFilter === 'business' }"
+					ng-click="selectRoleType('business')">
+					<span class="wg-more-filter-check" aria-hidden="true"><i class="fas fa-check" ng-if="roleTypeFilter === 'business'"></i></span>
+					<span class="wg-more-filter-label">Business</span>
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="wg-filter-dropdown-wrap">
+		<button type="button" class="wg-filter-btn" ng-click="toggleRoleOwnerDropdown()">
+			<span>Owner: {{ roleOwnerButtonLabel() }}</span>
+			<i class="fas" ng-class="showRoleOwnerDropdown ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+		</button>
+		<div class="wg-filter-panel rm-role-owner-panel" ng-if="showRoleOwnerDropdown" ng-click="$event.stopPropagation()">
+			<div class="wg-typeahead wg-filter-search-wrap">
+				<input type="text" class="wg-input"
+					placeholder="Search identities or workgroups"
+					ng-model="roleOwnerSearch"
+					ng-change="suggestRoleOwner(roleOwnerSearch)" />
+			</div>
+			<div class="wg-excel-list-wrap rm-role-owner-list">
+				<div class="wg-excel-row rm-role-owner-hit-row"
+					ng-repeat="hit in roleOwnerHits track by hit.id"
+					ng-click="selectRoleOwner(hit)">
+					<span class="rm-role-owner-type-icon" ng-class="hit.workgroup ? 'rm-role-owner-type-icon--wg' : 'rm-role-owner-type-icon--id'" title="{{ hit.workgroup ? 'Workgroup' : 'Identity' }}">
+						<i class="fas" ng-class="hit.workgroup ? 'fa-users' : 'fa-user'" aria-hidden="true"></i>
+					</span>
+					<span class="rm-role-owner-hit-body">
+						<span class="rm-role-owner-hit-main">{{ hit.displayName || hit.name }}</span>
+						<span class="wg-hit-sub rm-role-owner-hit-sub">{{ hit.name }}</span>
+					</span>
+				</div>
+				<div class="wg-excel-empty" ng-if="roleOwnerShowMinHint">Type at least 2 characters</div>
+				<div class="wg-excel-empty" ng-if="roleOwnerShowNoResults">No results found</div>
+			</div>
+			<div class="wg-filter-chip-wrap" ng-if="roleOwnerId">
+				<span class="wg-filter-chip">{{ roleOwnerLabel }}<i class="fas fa-times" ng-click="clearRoleOwner(); $event.stopPropagation();"></i></span>
+			</div>
+			<div class="wg-filter-actions">
+				<button type="button" class="wg-btn wg-btn-secondary" ng-click="clearRoleOwner()">Clear</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="wg-filter-dropdown-wrap">
+		<button type="button" class="wg-filter-btn" ng-click="toggleRoleRequestableDropdown()">
+			<span>Requestable: {{ roleRequestableButtonLabel() }}</span>
+			<i class="fas" ng-class="showRoleRequestableDropdown ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+		</button>
+		<div class="wg-more-filter-panel" ng-if="showRoleRequestableDropdown" ng-click="$event.stopPropagation()">
+			<div class="wg-more-filter-list">
+				<button type="button" class="wg-more-filter-row"
+					ng-class="{ 'wg-more-filter-row--selected': roleRequestableFilter === 'all' }"
+					ng-click="selectRoleRequestable('all')">
+					<span class="wg-more-filter-check" aria-hidden="true"><i class="fas fa-check" ng-if="roleRequestableFilter === 'all'"></i></span>
+					<span class="wg-more-filter-label">All</span>
+				</button>
+				<button type="button" class="wg-more-filter-row"
+					ng-class="{ 'wg-more-filter-row--selected': roleRequestableFilter === 'true' }"
+					ng-click="selectRoleRequestable('true')">
+					<span class="wg-more-filter-check" aria-hidden="true"><i class="fas fa-check" ng-if="roleRequestableFilter === 'true'"></i></span>
+					<span class="wg-more-filter-label">True</span>
+				</button>
+				<button type="button" class="wg-more-filter-row"
+					ng-class="{ 'wg-more-filter-row--selected': roleRequestableFilter === 'false' }"
+					ng-click="selectRoleRequestable('false')">
+					<span class="wg-more-filter-check" aria-hidden="true"><i class="fas fa-check" ng-if="roleRequestableFilter === 'false'"></i></span>
+					<span class="wg-more-filter-label">False</span>
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="wg-filter-dropdown-wrap">
+		<button type="button" class="wg-filter-btn" ng-click="toggleRoleMoreFilters()">
+			<span>More Filters</span>
+			<i class="fas fa-filter"></i>
+		</button>
+		<div class="wg-more-filter-panel rm-role-more-panel" ng-if="showRoleMoreFilters" ng-click="$event.stopPropagation()">
+			<div class="rm-role-more-body">
+				<p class="rm-role-more-hint">Search extended attributes (min 2 characters).</p>
+				<input type="text" class="wg-input rm-role-more-input"
+					placeholder="Search extended attributes…"
+					ng-model="roleExtendedAttrDraft"
+					ng-model-options="{ debounce: 300 }" />
+			</div>
+			<div class="wg-filter-actions">
+				<button type="button" class="wg-btn wg-btn-secondary" ng-click="clearRoleMoreFilters()">Clear</button>
+				<button type="button" class="wg-btn wg-btn-primary" ng-click="applyRoleMoreFilters()">Apply</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="rm-role-filter-actions">
+		<div class="column-toggle-wrapper wg-filter-dropdown-wrap rm-role-column-wrap" ng-click="$event.stopPropagation()">
+			<button type="button" class="wg-filter-btn" ng-click="toggleColumnMenu(); $event.stopPropagation();" title="Column chooser">
+				<span>Columns</span>
+				<i class="fa-solid fa-table-columns" aria-hidden="true"></i>
+			</button>
+			<div class="column-menu searchable-scrollable-menu" ng-show="showColumnMenu"
+				ng-blur-close="showColumnMenu = false" ng-click="$event.stopPropagation()">
+				<input type="text" class="column-search-input" placeholder="Search columns..."
+					ng-model="columnSearchText" />
+				<div class="column-list">
+					<label ng-repeat="col in allColumns | filter:columnSearchText">
+						<input type="checkbox" ng-model="visibleColumns[col.name]" /> {{col.label}}
+					</label>
+				</div>
+			</div>
+		</div>
+		<button type="button" class="wg-filter-btn"
+			ng-if="roles &amp;&amp; roles.length > 0"
+			ng-click="downloadRoles()"
+			title="Download">
+			<span>Download</span>
+			<i class="fas fa-download" aria-hidden="true"></i>
+		</button>
+		<button type="button" class="wg-clear-all-link" ng-click="clearRoleFilters()">Clear All</button>
+	</div>
 </div>
 <!--  
 <div class="search-by-columns" ng-show="showSearchBy">
@@ -65,36 +216,9 @@
 </div>
 
 <div class="action-bar">
-	<!-- Left-aligned: selection count -->
 	<div class="selection-text">
 		<span ng-if="selectedRoles.length > 0">{{selectedRoles.length}} selected</span>
 	</div>
-
-	<!-- Right-aligned: icons -->
-	<div class="action-icons">
-		<!-- Column Selector -->
-		<div class="column-toggle-wrapper" ng-click="$event.stopPropagation()">
-			<span class="icon-circle" ng-click="toggleColumnMenu(); $event.stopPropagation();">
-				<i class="fa-solid fa-table-columns" title="Column Chooser"/>
-			</span>
-			
-			<div class="column-menu searchable-scrollable-menu" ng-show="showColumnMenu"
-				ng-blur-close="showColumnMenu = false" ng-click="$event.stopPropagation()">
-				<input type="text" class="column-search-input" placeholder="Search columns..."
-					ng-model="columnSearchText" />
-				<div class="column-list">
-					<label ng-repeat="col in allColumns | filter:columnSearchText">
-						<input type="checkbox" ng-model="visibleColumns[col.name]" /> {{col.label}}
-					</label>
-				</div>
-			</div>
-		</div>
-		<!-- Download -->
-		<!-- i class="fas fa-download download-icon" title="Download" ng-if="roles &amp;&amp; roles.length > 0" ng-click="downloadRoles()"></i-->
-		<span class="icon-circle" ng-if="roles &amp;&amp; roles.length > 0" ng-click="downloadRoles()">
-		  <i class="fas fa-download" title="Download"></i>
-		</span>
-		
 
 		<!-- Action Selector Icon (only show when roles selected) 
 		<div class="action-dropdown-wrapper" ng-show="selectedRoles.length > 0" ng-click="$event.stopPropagation()">
@@ -163,13 +287,7 @@
 		</div>
 		-->
 
-
-
-		
-	</div>
 </div>
-
-
 
 <div class="table-wrapper-fixed" ng-init="loadData()">
 	<table class="role-table" ng-if="roles.length > 0">

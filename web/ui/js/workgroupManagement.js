@@ -8,6 +8,27 @@
 (function () {
 	'use strict';
 
+	/** Client-side filter: match any scalar property (handles API keys that differ from header config). */
+	function wgRowMatchesKeyword(row, keyword) {
+		var kw = (keyword || '').toLowerCase().trim();
+		if (!kw) {
+			return true;
+		}
+		if (!row || typeof row !== 'object') {
+			return false;
+		}
+		for (var key in row) {
+			if (!Object.prototype.hasOwnProperty.call(row, key)) {
+				continue;
+			}
+			var val = row[key];
+			if (val != null && typeof val !== 'object' && String(val).toLowerCase().indexOf(kw) !== -1) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	var WorkgroupApp = angular.module('WorkgroupApp', []);
 
 	var workgroupManagementController = [
@@ -36,6 +57,14 @@
 			$scope.wgFilterMemberCache = {};
 			$scope.wgFilterLoading = false;
 			$scope.wgSelectedMemberFilters = [];
+			$scope.showWgMoreFilterDropdown = false;
+			$scope.wgMoreFilter = '';
+			$scope.wgMoreFilterOptions = [
+				{ value: '', label: 'All workgroups' },
+				{ value: 'assignedToRoles', label: 'Show Workgroups assigned to roles' },
+				{ value: 'singleMember', label: 'Show Single Member roles' },
+				{ value: 'termedMember', label: 'Show Termed Member roles' }
+			];
 			$scope.showWgMembersModal = false;
 			$scope.wgMembers = [];
 			$scope.wgMemberHeaders = [];
@@ -134,29 +163,16 @@
 				);
 			};
 
-			$scope.getWgMemberSearchKeys = function () {
-				if (!$scope.wgMemberHeaders || !$scope.wgMemberHeaders.length) {
-					return ['name', 'displayName', 'employeeid'];
-				}
-				return $scope.wgMemberHeaders.map(function (h) {
-					return h.key;
-				});
-			};
-
 			$scope.filteredWgMembers = function () {
 				if (!Array.isArray($scope.wgMembers)) {
 					return [];
 				}
-				const keyword = ($scope.wgMemberSearch || '').toLowerCase().trim();
+				var keyword = ($scope.wgMemberSearch || '').toLowerCase().trim();
 				if (!keyword) {
 					return $scope.wgMembers;
 				}
-				const keys = $scope.getWgMemberSearchKeys();
 				return $scope.wgMembers.filter(function (member) {
-					return keys.some(function (key) {
-						const val = member[key];
-						return val != null && String(val).toLowerCase().indexOf(keyword) !== -1;
-					});
+					return wgRowMatchesKeyword(member, keyword);
 				});
 			};
 
@@ -197,39 +213,21 @@
 				return { start: start, end: end, total: total };
 			};
 
-			$scope.onWgMemberSearchChange = function () {
-				$scope.wgMemberCurrentPage = 1;
-				$scope.updateWgMembersPagination();
-			};
-
 			$scope.onWgMemberPageSizeChange = function () {
 				$scope.wgMemberCurrentPage = 1;
 				$scope.updateWgMembersPagination();
-			};
-
-			$scope.getWgOwnerRoleSearchKeys = function () {
-				if (!$scope.wgOwnerRoleHeaders || !$scope.wgOwnerRoleHeaders.length) {
-					return ['name', 'displayName', 'type', 'status'];
-				}
-				return $scope.wgOwnerRoleHeaders.map(function (h) {
-					return h.key;
-				});
 			};
 
 			$scope.filteredWgOwnerRoles = function () {
 				if (!Array.isArray($scope.wgOwnerRoles)) {
 					return [];
 				}
-				const keyword = ($scope.wgOwnerRoleSearch || '').toLowerCase().trim();
+				var keyword = ($scope.wgOwnerRoleSearch || '').toLowerCase().trim();
 				if (!keyword) {
 					return $scope.wgOwnerRoles;
 				}
-				const keys = $scope.getWgOwnerRoleSearchKeys();
 				return $scope.wgOwnerRoles.filter(function (role) {
-					return keys.some(function (key) {
-						const val = role[key];
-						return val != null && String(val).toLowerCase().indexOf(keyword) !== -1;
-					});
+					return wgRowMatchesKeyword(role, keyword);
 				});
 			};
 
@@ -270,15 +268,36 @@
 				return { start: start, end: end, total: total };
 			};
 
-			$scope.onWgOwnerRoleSearchChange = function () {
-				$scope.wgOwnerRoleCurrentPage = 1;
-				$scope.updateWgOwnerRolesPagination();
-			};
-
 			$scope.onWgOwnerRolePageSizeChange = function () {
 				$scope.wgOwnerRoleCurrentPage = 1;
 				$scope.updateWgOwnerRolesPagination();
 			};
+
+			$scope.clearWgMemberSearch = function ($event) {
+				if ($event) {
+					$event.stopPropagation();
+					$event.preventDefault();
+				}
+				$scope.wgMemberSearch = '';
+			};
+
+			$scope.clearWgOwnerRoleSearch = function ($event) {
+				if ($event) {
+					$event.stopPropagation();
+					$event.preventDefault();
+				}
+				$scope.wgOwnerRoleSearch = '';
+			};
+
+			$scope.$watch('wgMemberSearch', function () {
+				$scope.wgMemberCurrentPage = 1;
+				$scope.updateWgMembersPagination();
+			});
+
+			$scope.$watch('wgOwnerRoleSearch', function () {
+				$scope.wgOwnerRoleCurrentPage = 1;
+				$scope.updateWgOwnerRolesPagination();
+			});
 
 			$scope.loadWgOwnerRoles = function () {
 				if (!$scope.selectedWgId) {
@@ -350,6 +369,9 @@
 						.map(function (m) { return m.id; })
 						.join(',');
 				}
+				if ($scope.wgMoreFilter) {
+					params.moreFilter = $scope.wgMoreFilter;
+				}
 				$scope.wgLoading = true;
 				$http({
 					method: 'GET',
@@ -373,6 +395,12 @@
 			};
 
 			$scope.triggerWorkgroupSearch = function () {
+				$scope.workgroupCurrentPage = 1;
+				$scope.loadWorkgroups();
+			};
+			
+			$scope.clearWorkgroupSearch = function () {
+				$scope.workgroupSearchText = '';
 				$scope.workgroupCurrentPage = 1;
 				$scope.loadWorkgroups();
 			};
@@ -416,8 +444,9 @@
 				);
 			};
 
-			$scope.wgSuggestFilterMembers = function () {
-				$scope.loadWgFilterMembers($scope.wgFilterMemberSearch);
+			$scope.wgSuggestFilterMembers = function (query) {
+				const q = (query != null ? String(query) : String($scope.wgFilterMemberSearch || '')).trim();
+				$scope.loadWgFilterMembers(q);
 			};
 
 			$scope.toggleWgFilterMember = function (member) {
@@ -447,8 +476,12 @@
 			};
 
 			$scope.removeWgFilterMember = function (id) {
+				const idKey = id != null ? String(id) : '';
+				if (idKey && $scope.wgFilterMemberDraft) {
+					$scope.wgFilterMemberDraft[idKey] = false;
+				}
 				$scope.wgSelectedMemberFilters = $scope.wgSelectedMemberFilters.filter(function (m) {
-					return m.id !== id;
+					return String(m.id) !== idKey;
 				});
 				$scope.triggerWorkgroupSearch();
 			};
@@ -476,6 +509,34 @@
 				$scope.wgFilterMemberDraft = {};
 				$scope.wgFilterMemberOptions = [];
 				$scope.showWgMemberFilterDropdown = false;
+				$scope.triggerWorkgroupSearch();
+			};
+
+			$scope.toggleWgMoreFilterDropdown = function () {
+				$scope.showWgMoreFilterDropdown = !$scope.showWgMoreFilterDropdown;
+			};
+
+			$scope.selectWgMoreFilter = function (value) {
+				$scope.wgMoreFilter = value || '';
+				$scope.showWgMoreFilterDropdown = false;
+				$scope.triggerWorkgroupSearch();
+			};
+
+			$scope.clearWgMoreFilter = function () {
+				$scope.wgMoreFilter = '';
+				$scope.showWgMoreFilterDropdown = false;
+				$scope.triggerWorkgroupSearch();
+			};
+
+			$scope.clearAllWgFilters = function () {
+				$scope.workgroupSearchText = '';
+				$scope.wgSelectedMemberFilters = [];
+				$scope.wgFilterMemberSearch = '';
+				$scope.wgFilterMemberDraft = {};
+				$scope.wgFilterMemberOptions = [];
+				$scope.wgMoreFilter = '';
+				$scope.showWgMemberFilterDropdown = false;
+				$scope.showWgMoreFilterDropdown = false;
 				$scope.triggerWorkgroupSearch();
 			};
 

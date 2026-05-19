@@ -24,6 +24,7 @@ import sailpoint.plugin.PluginContext;
 import sailpoint.plugin.rolemanagement.dao.RmeBatchRequestDao;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequest;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequestItem;
+import sailpoint.plugin.rolemanagement.util.BulkUploadTemplateExcelBuilder;
 import sailpoint.plugin.rolemanagement.util.RuleUtil;
 import sailpoint.plugin.rolemanagement.util.Constants;
 import sailpoint.tools.GeneralException;
@@ -223,24 +224,45 @@ public class RmeBatchRequestService {
 		}
 	}
 	
-	public String downloadBatchRequestTemplate() throws Exception {
-		log("Enter downloadBatchRequestTemplate");
-		
-		String ruleName = null;
-		String result = null;
-		
+	public Map<String, String> downloadBatchRequestTemplate(String roleType) throws Exception {
+		log("Enter downloadBatchRequestTemplate roleType=" + roleType);
+
 		try {
-			Custom customObj = _context.getObjectByName(Custom.class, customObjectName);			
-			
-			ruleName = (String) customObj.get(Constants.DOWNLOAD_BULK_UPLOAD_TEMPLATE);
-			Map<String,Object> params = new HashMap<String,Object>();
-			result = (String) RuleUtil.runIIQRule(_context, ruleName, params);
-		}
-		catch(Exception e) {
-			log("Error in downloadBatchRequestTemplate "+e);
+			Custom customObj = _context.getObjectByName(Custom.class, customObjectName);
+			String ruleName = (String) customObj.get(Constants.DOWNLOAD_BULK_UPLOAD_TEMPLATE);
+			Map<String, Object> params = new HashMap<String, Object>();
+			params.put("roleType", roleType);
+			Object ruleResult = RuleUtil.runIIQRule(_context, ruleName, params);
+
+			byte[] excelBytes = null;
+			if (ruleResult instanceof Map) {
+				excelBytes = BulkUploadTemplateExcelBuilder.build((Map<String, Object>) ruleResult);
+			} else if (ruleResult instanceof String) {
+				excelBytes = java.util.Base64.getDecoder().decode((String) ruleResult);
+			} else if (ruleResult instanceof byte[]) {
+				excelBytes = (byte[]) ruleResult;
+			}
+
+			if (excelBytes == null || excelBytes.length == 0) {
+				throw new GeneralException("Bulk upload template rule returned empty content. Type: "
+						+ (ruleResult != null ? ruleResult.getClass().getName() : "null"));
+			}
+			if (excelBytes.length < 4 || excelBytes[0] != 'P' || excelBytes[1] != 'K') {
+				throw new GeneralException("Bulk upload template rule did not return valid xlsx content");
+			}
+
+			String fileName = "it".equalsIgnoreCase(roleType)
+					? "IT_Role_BulkUpload_Template.xlsx"
+					: "Business_Role_BulkUpload_Template.xlsx";
+
+			Map<String, String> result = new HashMap<String, String>();
+			result.put("fileName", fileName);
+			result.put("content", java.util.Base64.getEncoder().encodeToString(excelBytes));
+			return result;
+		} catch (Exception e) {
+			log("Error in downloadBatchRequestTemplate " + e);
 			throw e;
 		}
-		return result;
 	}
 
 	public Map<String, Object> getConfig() throws Exception {

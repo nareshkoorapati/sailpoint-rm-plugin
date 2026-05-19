@@ -85,10 +85,15 @@ public class BatchRequestResource extends BasePluginResource{
 	@GET
 	@Path("/batch/downloadTemplate")
 	@Produces(MediaType.APPLICATION_JSON)
-	@Consumes(MediaType.APPLICATION_JSON)
-	public Response downloadBatchTemplate() throws Exception {
-		String csvContent = getBatchService().downloadBatchRequestTemplate();
-		return Response.ok(csvContent).header("Content-Disposition", "attachment; filename=\"roleBulkUploadTemplate.cvs\"").build();
+	public Response downloadBatchTemplate(@QueryParam("roleType") @DefaultValue("it") String roleType) throws Exception {
+		String normalizedRoleType = roleType != null ? roleType.trim().toLowerCase() : "it";
+		if (!"it".equals(normalizedRoleType) && !"business".equals(normalizedRoleType)) {
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity(error("roleType must be 'it' or 'business'"))
+					.build();
+		}
+		Map<String, String> payload = getBatchService().downloadBatchRequestTemplate(normalizedRoleType);
+		return Response.ok(payload).build();
 	}
 	
 	/*
