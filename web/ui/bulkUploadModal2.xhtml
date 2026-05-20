@@ -46,7 +46,7 @@
 
             
             <!-- ================= DEFAULT VIEW: EXISTING BULK REQUESTS TABLE ================= -->
-            <div ng-show="!showCreateBatch &amp;&amp; !showDetails">
+            <div ng-show="!showCreateBatch &amp;&amp; !showDetails" class="bulk-list-view">
                 <div class="page-loading-overlay" ng-show="isBulkRequestsLoading">
                     <div class="page-loading-spinner"></div>
                 </div>
@@ -66,9 +66,8 @@
                     </i>
                 </div>
 
-                <!-- Your existing table + pagination goes inside this wrapper -->
-                <div class="table-wrapper-fixed">
-                    <!-- EXAMPLE: replace with your real table + pager -->
+                <div class="data-table-panel">
+                <div class="table-wrapper-fixed data-table-panel__scroll">
                     <table class="role-table">
                         <thead>
                             <tr>
@@ -100,6 +99,17 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="data-table-panel__footer">
+                <pagination-bar
+                    total-records="totalBatchRequests"
+                    page="batchRequestCurrentPage"
+                    page-size="batchRequestPageSize"
+                    page-size-options="[10,25,50,100]"
+                    on-change="onBatchPageChange(page, pageSize)"
+                    on-refresh="loadBulkRequests()">
+                </pagination-bar>
+                </div>
+                </div>
                 <div class="context-menu"
                      ng-if="contextMenuVisible"
                      ng-style="{'top': contextMenuPosition.y + 'px', 'left': contextMenuPosition.x + 'px'}"
@@ -111,15 +121,6 @@
                         Delete
                     </button>
                 </div>
-                <!-- Pagination -->
-                <pagination-bar
-                    total-records="totalBatchRequests"
-                    page="batchRequestCurrentPage"
-                    page-size="batchRequestPageSize"
-                    page-size-options="[10,25,50,100]"
-                    on-change="onBatchPageChange(page, pageSize)"
-                    on-refresh="loadBulkRequests()">
-                </pagination-bar>
 
             </div>
 
@@ -231,7 +232,8 @@
                     </ul>
                 </div>
                 <!-- CSV PREVIEW TABLE -->
-                <div class="table-wrapper-fixed" ng-if="previewRows.length">
+                <div class="data-table-panel" ng-if="previewRows.length">
+                <div class="table-wrapper-fixed data-table-panel__scroll">
 
                     <table class="role-table">
                         <thead>
@@ -258,39 +260,20 @@
                         </tbody>
                     </table>            
                 </div>
-                <!-- pagination bar -->
-                <div class="pagination-bar" ng-if="previewRows.length > previewPageSize">
-                    
-                    <div class="pagination-info">
-                        {{ ((previewPage - 1) * previewPageSize) + 1 }}
-                        -
-                        {{ (previewPage * previewPageSize) > previewRows.length
-                            ? previewRows.length
-                            : (previewPage * previewPageSize) }}
-                        of {{ previewRows.length }}
-                    </div>
-
-                    <div class="pagination-actions">
-                        <button type="button"
-                                class="page-arrow"
-                                ng-click="goPrevPage()"
-                                ng-disabled="previewPage === 1">
-                            ‹
-                        </button>
-
-                        <button type="button"
-                                class="page-arrow"
-                                ng-click="goNextPage()"
-                                ng-disabled="previewPage * previewPageSize >= previewRows.length">
-                            ›
-                        </button>
-                    </div>
+                <div class="data-table-panel__footer">
+                    <pagination-bar
+                        total-records="previewRows.length"
+                        page="previewPage"
+                        page-size="previewPageSize"
+                        page-size-options="[10,25,50]"
+                        on-change="onPreviewPageChange(page, pageSize)">
+                    </pagination-bar>
                 </div>
-
+                </div>
             </div>
-            
+
             <!-- DETAILS VIEW -->
-            <div ng-show="showDetails" class="batch-details">
+            <div ng-show="showDetails" class="batch-details bulk-details-view">
 
                 <h3 class="section-title">Batch Request Details</h3>
 
@@ -378,7 +361,8 @@
 
                 <h4 class="section-subtitle">Batch Request Items</h4>
 
-                <div class="table-wrapper-fixed">
+                <div class="data-table-panel">
+                <div class="table-wrapper-fixed data-table-panel__scroll">
                     <table class="role-table">
                         <thead>
                             <tr>
@@ -398,8 +382,9 @@
                                 <td>{{item.record}}</td>
                             </tr>
                         </tbody>
-                    </table>                    
+                    </table>
                 </div>
+                <div class="data-table-panel__footer">
                 <pagination-bar
                     total-records="requestItemsCount"
                     page="requestItemsCurrentPage"
@@ -407,7 +392,9 @@
                     page-size-options="[10,25,50,100]"
                     on-change="onRequestItemsPageChange(page, pageSize)">
                 </pagination-bar>
-                
+                </div>
+                </div>
+
             </div>
 			<div class="custom-modal-backdrop" ng-show="showDifferenceModel" ng-cloak="true">
 				<div class="custom-modal-box">

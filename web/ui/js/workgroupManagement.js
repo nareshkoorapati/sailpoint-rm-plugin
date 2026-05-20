@@ -8,20 +8,34 @@
 (function () {
 	'use strict';
 
-	/** Client-side filter: match any scalar property (handles API keys that differ from header config). */
-	function wgRowMatchesKeyword(row, keyword) {
+	var WG_MODAL_SEARCH_MIN_LEN = 3;
+
+	/** Match row values for configured table columns (name, NetworkId, displayName, status, etc.). */
+	function wgRowMatchesColumns(row, keyword, headers) {
 		var kw = (keyword || '').toLowerCase().trim();
-		if (!kw) {
+		if (!kw || kw.length < WG_MODAL_SEARCH_MIN_LEN) {
 			return true;
 		}
 		if (!row || typeof row !== 'object') {
 			return false;
 		}
-		for (var key in row) {
-			if (!Object.prototype.hasOwnProperty.call(row, key)) {
-				continue;
+		var keys = [];
+		if (headers && headers.length) {
+			for (var i = 0; i < headers.length; i++) {
+				if (headers[i] && headers[i].key) {
+					keys.push(headers[i].key);
+				}
 			}
-			var val = row[key];
+		}
+		if (keys.length === 0) {
+			for (var key in row) {
+				if (Object.prototype.hasOwnProperty.call(row, key)) {
+					keys.push(key);
+				}
+			}
+		}
+		for (var j = 0; j < keys.length; j++) {
+			var val = row[keys[j]];
 			if (val != null && typeof val !== 'object' && String(val).toLowerCase().indexOf(kw) !== -1) {
 				return true;
 			}
@@ -31,10 +45,16 @@
 
 	var WorkgroupApp = angular.module('WorkgroupApp', []);
 
+	var WG_TABLE_LOAD_MIN_MS = 1000;
+
 	var workgroupManagementController = [
 		'$scope',
 		'$http',
-		function ($scope, $http) {
+		'$timeout',
+		function ($scope, $http, $timeout) {
+			var wgLoadSeq = 0;
+			var wgLoadStartedAt = 0;
+			var wgLoadEndTimer = null;
 			const csrfToken = PluginHelper.getCsrfToken();
 			if (csrfToken) {
 				$http.defaults.headers.common['X-XSRF-TOKEN'] = csrfToken;
@@ -73,7 +93,7 @@
 			$scope.wgMembersTitle = '';
 			$scope.wgMembersLoading = false;
 			$scope.wgLoading = false;
-			$scope.wgMemberSearch = '';
+			$scope.wgModalSearch = { member: '', role: '' };
 			$scope.wgMemberPageSize = 10;
 			$scope.wgMemberCurrentPage = 1;
 			$scope.wgMemberTotalPages = 1;
@@ -82,7 +102,6 @@
 			$scope.wgOwnerRoles = [];
 			$scope.wgOwnerRoleHeaders = [];
 			$scope.wgOwnerRolesLoading = false;
-			$scope.wgOwnerRoleSearch = '';
 			$scope.wgOwnerRolePageSize = 10;
 			$scope.wgOwnerRoleCurrentPage = 1;
 			$scope.wgOwnerRoleTotalPages = 1;
@@ -169,12 +188,12 @@
 				if (!Array.isArray($scope.wgMembers)) {
 					return [];
 				}
-				var keyword = ($scope.wgMemberSearch || '').toLowerCase().trim();
-				if (!keyword) {
+				var keyword = ($scope.wgModalSearch.member || '').toLowerCase().trim();
+				if (!keyword || keyword.length < WG_MODAL_SEARCH_MIN_LEN) {
 					return $scope.wgMembers;
 				}
 				return $scope.wgMembers.filter(function (member) {
-					return wgRowMatchesKeyword(member, keyword);
+					return wgRowMatchesColumns(member, keyword, $scope.wgMemberHeaders);
 				});
 			};
 
@@ -224,12 +243,12 @@
 				if (!Array.isArray($scope.wgOwnerRoles)) {
 					return [];
 				}
-				var keyword = ($scope.wgOwnerRoleSearch || '').toLowerCase().trim();
-				if (!keyword) {
+				var keyword = ($scope.wgModalSearch.role || '').toLowerCase().trim();
+				if (!keyword || keyword.length < WG_MODAL_SEARCH_MIN_LEN) {
 					return $scope.wgOwnerRoles;
 				}
 				return $scope.wgOwnerRoles.filter(function (role) {
-					return wgRowMatchesKeyword(role, keyword);
+					return wgRowMatchesColumns(role, keyword, $scope.wgOwnerRoleHeaders);
 				});
 			};
 
@@ -280,7 +299,9 @@
 					$event.stopPropagation();
 					$event.preventDefault();
 				}
-				$scope.wgMemberSearch = '';
+				$scope.wgModalSearch.member = '';
+				$scope.wgMemberCurrentPage = 1;
+				$scope.updateWgMembersPagination();
 			};
 
 			$scope.clearWgOwnerRoleSearch = function ($event) {
@@ -288,15 +309,17 @@
 					$event.stopPropagation();
 					$event.preventDefault();
 				}
-				$scope.wgOwnerRoleSearch = '';
+				$scope.wgModalSearch.role = '';
+				$scope.wgOwnerRoleCurrentPage = 1;
+				$scope.updateWgOwnerRolesPagination();
 			};
 
-			$scope.$watch('wgMemberSearch', function () {
+			$scope.$watch('wgModalSearch.member', function () {
 				$scope.wgMemberCurrentPage = 1;
 				$scope.updateWgMembersPagination();
 			});
 
-			$scope.$watch('wgOwnerRoleSearch', function () {
+			$scope.$watch('wgModalSearch.role', function () {
 				$scope.wgOwnerRoleCurrentPage = 1;
 				$scope.updateWgOwnerRolesPagination();
 			});
@@ -340,38 +363,27 @@
 				}
 			};
 
-			$scope.workgroupStartDisplay = function () {
-				if (!$scope.workgroupTotal) {
-					return 0;
+			$scope.getWorkgroupPageLimit = function () {
+				var size = parseInt($scope.workgroupPageSize, 10);
+				if (isNaN(size) || size < 1) {
+					return 25;
 				}
-				return ($scope.workgroupCurrentPage - 1) * $scope.workgroupPageSize + 1;
+				return size;
 			};
 
-			$scope.workgroupEndDisplay = function () {
-				return Math.min(
-					$scope.workgroupCurrentPage * $scope.workgroupPageSize,
-					$scope.workgroupTotal
-				);
-			};
-
-			$scope.formatWgDate = function (value) {
-				if (value == null || value === '') {
-					return '';
-				}
-				var d = new Date(value);
-				if (isNaN(d.getTime())) {
-					return '';
-				}
-				var pad = function (n) {
-					return n < 10 ? '0' + n : String(n);
-				};
-				var month = pad(d.getMonth() + 1);
-				var day = pad(d.getDate());
-				var year = d.getFullYear();
-				var hours = pad(d.getHours());
-				var minutes = pad(d.getMinutes());
-				var seconds = pad(d.getSeconds());
-				return month + '/' + day + '/' + year + ' ' + hours + ':' + minutes + ':' + seconds;
+			$scope.formatWgDate = function (timestamp) {
+				$scope.debugLog("Enter formatDate");
+				if (!timestamp) return '';
+				const date = new Date(timestamp);
+				return date.toLocaleString(undefined, {
+					year: '2-digit',
+					month: 'numeric',
+					day: 'numeric',
+					hour: 'numeric',
+					minute: '2-digit',
+					hour12: true
+				});
+				
 			};
 
 			$scope.wgSortBy = function (columnName) {
@@ -385,11 +397,24 @@
 				$scope.loadWorkgroups();
 			};
 
+			$scope.finishWgTableLoading = function () {
+				var elapsed = Date.now() - wgLoadStartedAt;
+				var remain = Math.max(0, WG_TABLE_LOAD_MIN_MS - elapsed);
+				if (wgLoadEndTimer) {
+					$timeout.cancel(wgLoadEndTimer);
+				}
+				wgLoadEndTimer = $timeout(function () {
+					$scope.wgLoading = false;
+					wgLoadEndTimer = null;
+				}, remain);
+			};
+
 			$scope.loadWorkgroups = function () {
-				const start = ($scope.workgroupCurrentPage - 1) * $scope.workgroupPageSize;
+				var pageSize = $scope.getWorkgroupPageLimit();
+				var start = ($scope.workgroupCurrentPage - 1) * pageSize;
 				const params = {
 					start: start,
-					limit: $scope.workgroupPageSize,
+					limit: pageSize,
 					sort: $scope.wgSortColumn || 'name',
 					dir: $scope.wgSortDirection || 'ASC'
 				};
@@ -405,6 +430,8 @@
 				if ($scope.wgMoreFilter) {
 					params.moreFilter = $scope.wgMoreFilter;
 				}
+				var seq = ++wgLoadSeq;
+				wgLoadStartedAt = Date.now();
 				$scope.wgLoading = true;
 				$http({
 					method: 'GET',
@@ -413,16 +440,22 @@
 					headers: $scope.headerToken.headers
 				}).then(
 					function success(res) {
+						if (seq !== wgLoadSeq) {
+							return;
+						}
 						const data = res.data || {};
 						$scope.workgroupRows = data.objects || [];
 						$scope.workgroupTotal = data.total != null ? data.total : 0;
-						$scope.wgLoading = false;
+						$scope.finishWgTableLoading();
 					},
 					function error() {
+						if (seq !== wgLoadSeq) {
+							return;
+						}
 						$scope.workgroupRows = [];
 						$scope.workgroupTotal = 0;
-						$scope.wgLoading = false;
 						$scope.showToast('Failed to load workgroups', 'error');
+						$scope.finishWgTableLoading();
 					}
 				);
 			};
@@ -439,16 +472,19 @@
 			};
 
 			$scope.toggleWgMemberFilterDropdown = function () {
-				$scope.showWgMemberFilterDropdown = !$scope.showWgMemberFilterDropdown;
 				if ($scope.showWgMemberFilterDropdown) {
-					$scope.wgFilterMemberDraft = {};
-					$scope.wgSelectedMemberFilters.forEach(function (m) {
-						if (m && m.id) {
-							$scope.wgFilterMemberDraft[m.id] = true;
-						}
-					});
-					$scope.loadWgFilterMembers('');
+					$scope.showWgMemberFilterDropdown = false;
+					return;
 				}
+				$scope.showWgMoreFilterDropdown = false;
+				$scope.showWgMemberFilterDropdown = true;
+				$scope.wgFilterMemberDraft = {};
+				$scope.wgSelectedMemberFilters.forEach(function (m) {
+					if (m && m.id) {
+						$scope.wgFilterMemberDraft[m.id] = true;
+					}
+				});
+				$scope.loadWgFilterMembers('');
 			};
 
 			$scope.loadWgFilterMembers = function (query) {
@@ -546,7 +582,12 @@
 			};
 
 			$scope.toggleWgMoreFilterDropdown = function () {
-				$scope.showWgMoreFilterDropdown = !$scope.showWgMoreFilterDropdown;
+				if ($scope.showWgMoreFilterDropdown) {
+					$scope.showWgMoreFilterDropdown = false;
+					return;
+				}
+				$scope.showWgMemberFilterDropdown = false;
+				$scope.showWgMoreFilterDropdown = true;
 			};
 
 			$scope.selectWgMoreFilter = function (value) {
@@ -573,34 +614,9 @@
 				$scope.triggerWorkgroupSearch();
 			};
 
-			$scope.wgGoToFirstPage = function () {
-				$scope.workgroupCurrentPage = 1;
-				$scope.loadWorkgroups();
-			};
-
-			$scope.wgGoToPreviousPage = function () {
-				if ($scope.workgroupCurrentPage > 1) {
-					$scope.workgroupCurrentPage--;
-					$scope.loadWorkgroups();
-				}
-			};
-
-			$scope.wgGoToNextPage = function () {
-				const maxPage = Math.max(1, Math.ceil($scope.workgroupTotal / $scope.workgroupPageSize));
-				if ($scope.workgroupCurrentPage < maxPage) {
-					$scope.workgroupCurrentPage++;
-					$scope.loadWorkgroups();
-				}
-			};
-
-			$scope.wgGoToLastPage = function () {
-				const maxPage = Math.max(1, Math.ceil($scope.workgroupTotal / $scope.workgroupPageSize));
-				$scope.workgroupCurrentPage = maxPage;
-				$scope.loadWorkgroups();
-			};
-
-			$scope.wgChangePageSize = function () {
-				$scope.workgroupCurrentPage = 1;
+			$scope.onWorkgroupPageChange = function (page, pageSize) {
+				$scope.workgroupCurrentPage = page;
+				$scope.workgroupPageSize = pageSize;
 				$scope.loadWorkgroups();
 			};
 
@@ -615,14 +631,14 @@
 				$scope.wgMembersActiveTab = 'members';
 				$scope.wgMembers = [];
 				$scope.wgMemberHeaders = [];
-				$scope.wgMemberSearch = '';
+				$scope.wgModalSearch.member = '';
+				$scope.wgModalSearch.role = '';
 				$scope.wgMemberPageSize = 10;
 				$scope.wgMemberCurrentPage = 1;
 				$scope.wgMemberTotalPages = 1;
 				$scope.wgOwnerRoles = [];
 				$scope.wgOwnerRoleHeaders = [];
 				$scope.wgOwnerRolesLoading = false;
-				$scope.wgOwnerRoleSearch = '';
 				$scope.wgOwnerRolePageSize = 10;
 				$scope.wgOwnerRoleCurrentPage = 1;
 				$scope.wgOwnerRoleTotalPages = 1;
@@ -639,8 +655,9 @@
 								? d.headers
 								: [
 										{ key: 'name', label: 'Name' },
+										{ key: 'employeeid', label: 'NetworkId' },
 										{ key: 'displayName', label: 'Display Name' },
-										{ key: 'employeeid', label: 'Network Id' }
+										{ key: 'status', label: 'Status' }
 								  ];
 						$scope.wgMembersLoading = false;
 						$scope.updateWgMembersPagination();
@@ -654,9 +671,9 @@
 
 			$scope.closeWgMembersModal = function () {
 				$scope.showWgMembersModal = false;
-				$scope.wgMemberSearch = '';
+				$scope.wgModalSearch.member = '';
+				$scope.wgModalSearch.role = '';
 				$scope.wgMemberCurrentPage = 1;
-				$scope.wgOwnerRoleSearch = '';
 				$scope.wgOwnerRoleCurrentPage = 1;
 			};
 

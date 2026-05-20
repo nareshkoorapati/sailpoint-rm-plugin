@@ -29,11 +29,11 @@
 				<div class="modern-search-bar">
 					<i class="fas fa-search search-icon"></i>
 					<input type="text"
-						ng-model="wgMemberSearch"
-						placeholder="Search group members..."
+						ng-model="wgModalSearch.member"
+						placeholder="Search group members (min 3 characters)..."
 						ng-disabled="wgMembers.length === 0" />
 					<button type="button" class="modern-search-bar-clear"
-						ng-if="wgMemberSearch"
+						ng-if="wgModalSearch.member"
 						ng-click="clearWgMemberSearch($event)"
 						aria-label="Clear search">
 						<i class="fas fa-times" aria-hidden="true"></i>
@@ -90,11 +90,11 @@
 				<div class="modern-search-bar">
 					<i class="fas fa-search search-icon"></i>
 					<input type="text"
-						ng-model="wgOwnerRoleSearch"
-						placeholder="Search owned roles..."
+						ng-model="wgModalSearch.role"
+						placeholder="Search owned roles (min 3 characters)..."
 						ng-disabled="wgOwnerRoles.length === 0" />
 					<button type="button" class="modern-search-bar-clear"
-						ng-if="wgOwnerRoleSearch"
+						ng-if="wgModalSearch.role"
 						ng-click="clearWgOwnerRoleSearch($event)"
 						aria-label="Clear search">
 						<i class="fas fa-times" aria-hidden="true"></i>

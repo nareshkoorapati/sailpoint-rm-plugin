@@ -23,6 +23,7 @@
 
 
 
+	<div class="rm-page">
 	<!-- Overview metrics: same structure as Workgroup Management -->
 	<div class="wg-dashboard-section">
 		<h3 class="wg-dashboard-heading">Overview</h3>
@@ -289,7 +290,8 @@
 
 </div>
 
-<div class="table-wrapper-fixed" ng-init="loadData()">
+<div class="data-table-panel">
+	<div class="table-wrapper-fixed data-table-panel__scroll" ng-init="loadData()">
 	<table class="role-table" ng-if="roles.length > 0">
 		<thead>
 			<tr>
@@ -348,25 +350,21 @@
 		<i class="fas fa-inbox"></i>
 		<p>{{noRolesFound}}</p>
 	</div>
+	</div>
+
+	<div class="data-table-panel__footer">
+		<pagination-bar
+			total-records="totalCount"
+			page="currentPage"
+			page-size="pageSize"
+			page-size-options="[10,25,50]"
+			on-change="onRolePageChange(page, pageSize)"
+			on-refresh="loadData()">
+		</pagination-bar>
+	</div>
 </div>
 
-<div class="pagination-bar">
-	<span>Rows per page:</span>
-	<select ng-model="pageSize" ng-change="changePageSize()">
-		<option ng-value="10">10</option>
-		<option ng-value="25">25</option>
-		<option ng-value="50">50</option>
-	</select>
-	<span>{{startIndex + 1}} - {{endIndex}} of {{totalCount}}</span>
-	<button ng-click="goToFirstPage()">&#171;</button>
-	<button ng-click="goToPreviousPage()">&#8249;</button>
-	<input type="number" ng-model="currentPageInput" ng-blur="validateAndGoToPage()"
-		ng-keydown="checkEnterKey($event, validateAndGoToPage)" placeholder="Page #" />
-
-
-	<button ng-click="goToNextPage()">&#8250;</button>
-	<button ng-click="goToLastPage()">&#187;</button>
-</div>
+	</div>
 
 <ui:include src="roleDetailsModal.xhtml" />
 <ui:include src="roleEditModal.xhtml" />

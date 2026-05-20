@@ -60,150 +60,6 @@ RoleApp.directive('ngRightClick', ['$parse', function($parse) {
         });
     };
 }]);
-RoleApp.directive('paginationBar', function() {
-    return {
-        restrict: 'E',
-        scope: {
-            totalRecords:    '=',
-            page:            '=',
-            pageSize:        '=',
-            pageSizeOptions: '=?',
-            onChange:        '&',
-            onRefresh:       '&?'
-        },
-        template: `
-            <div class="pagination-bar" ng-if="totalRecords > 0">
-                <!-- left: 1 - 10 of 243 -->
-                <div class="pagination-info">
-                    Showing {{ startIndex }} - {{ endIndex }} of {{ totalRecords }}
-                </div>
-
-                <!-- center: page size selector -->
-                <div class="pagination-page-size" ng-if="pageSizeOptions && pageSizeOptions.length">
-                    <span>Rows per page:</span>
-                    <select ng-model="pageSize"
-                            ng-options="s for s in pageSizeOptions"
-                            ng-change="changePageSize(pageSize)">
-                    </select>
-                </div>
-
-                <!-- right: first / prev / next / last -->
-                <div class="pagination-actions">
-                    <button type="button"
-                            class="page-arrow"
-                            ng-if="hasRefresh()"
-                            ng-click="refresh()"
-                            title="Refresh">
-                        <i class="fa fa-refresh"></i>
-                    </button>
-
-                    <button type="button"
-                            class="page-arrow"
-                            ng-click="goToPage(1)"
-                            ng-disabled="page <= 1">
-                        «
-                    </button>
-
-                    <button type="button"
-                            class="page-arrow"
-                            ng-click="goPrev()"
-                            ng-disabled="page <= 1">
-                        ‹
-                    </button>
-
-                    <span class="page-indicator">
-                        Page {{ page }} / {{ pageCount }}
-                    </span>
-
-                    <button type="button"
-                            class="page-arrow"
-                            ng-click="goNext()"
-                            ng-disabled="page >= pageCount">
-                        ›
-                    </button>
-
-                    <button type="button"
-                            class="page-arrow"
-                            ng-click="goToPage(pageCount)"
-                            ng-disabled="page >= pageCount">
-                        »
-                    </button>
-                </div>
-            </div>
-        `,
-        link: function(scope) {
-            if (!scope.pageSizeOptions) {
-                scope.pageSizeOptions = [10, 25, 50, 100];
-            }
-
-            scope.hasRefresh = function() {
-                return angular.isFunction(scope.onRefresh);
-            };
-
-            function recalc() {
-                if (!scope.pageSize || scope.pageSize <= 0) {
-                    scope.pageSize = scope.pageSizeOptions[0];
-                }
-                scope.pageCount = scope.totalRecords > 0
-                    ? Math.ceil(scope.totalRecords / scope.pageSize)
-                    : 1;
-
-                if (!scope.page || scope.page < 1) {
-                    scope.page = 1;
-                }
-                if (scope.page > scope.pageCount) {
-                    scope.page = scope.pageCount;
-                }
-
-                scope.startIndex = (scope.totalRecords === 0)
-                    ? 0
-                    : ((scope.page - 1) * scope.pageSize) + 1;
-
-                var tentativeEnd = scope.page * scope.pageSize;
-                scope.endIndex = (tentativeEnd > scope.totalRecords)
-                    ? scope.totalRecords
-                    : tentativeEnd;
-            }
-
-            scope.$watchGroup(['totalRecords', 'page', 'pageSize'], function() {
-                recalc();
-            });
-
-            scope.goToPage = function(p) {
-                if (p < 1 || p > scope.pageCount || p === scope.page) return;
-                scope.page = p;
-                recalc();
-                scope.onChange({ page: scope.page, pageSize: scope.pageSize });
-            };
-
-            scope.goPrev = function() {
-                scope.goToPage(scope.page - 1);
-            };
-
-            scope.goNext = function() {
-                scope.goToPage(scope.page + 1);
-            };
-
-            scope.changePageSize = function(pageSize) {
-                console.log('Page size changed to', pageSize);
-                // reset to first page when page size changes
-                scope.page = 1;
-                scope.pageSize = pageSize;
-                recalc();
-                scope.onChange({ page: scope.page, pageSize: scope.pageSize });
-            };
-
-            scope.refresh = function() {
-                if (scope.hasRefresh()) {
-                    scope.onRefresh();
-                }
-            };
-        }
-    };
-});
-
-
-
 RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  function ($scope, $http, $timeout) {
  	
     $scope.config = {};
@@ -621,6 +477,11 @@ RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  fun
     $scope.previewPage     = 1;
     $scope.previewPageSize = 25;
 
+
+    $scope.onPreviewPageChange = function (page, pageSize) {
+        $scope.previewPage = page;
+        $scope.previewPageSize = pageSize;
+    };
 
     $scope.goPrevPage = function () {
         if ($scope.previewPage > 1) {

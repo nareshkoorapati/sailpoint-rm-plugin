@@ -6,10 +6,10 @@
 <ui:composition>
 
 	<!-- One outer ng-controller only; parent page already has ng-app="RoleApp". Nested ng-app breaks controller lookup. -->
-	<div ng-controller="WorkgroupManagementController">
+	<div ng-controller="WorkgroupManagementController" class="wg-page">
 	<div class="wg-page-header wg-page-header-row">
 		<div class="wg-page-header-text">
-			<h1 class="wg-page-title">Workgroup Management</h1>
+			<h3 class="section-title">Workgroup Management</h3>
 		</div>
 		<button type="button" class="wg-btn wg-btn-primary" ng-click="openWgCreateModal()">
 			<i class="fas fa-plus"></i> Create workgroup
@@ -49,7 +49,7 @@
 				</div>
 			</div>
 			<div class="rm-metric-card wg-stat-card">
-				<div class="rm-metric-icon rm-metric-icon--emerald"><i class="fas fa-circle-check" aria-hidden="true"></i></div>
+				<div class="rm-metric-icon rm-metric-icon--rose"><i class="fas fa-ban" aria-hidden="true"></i></div>
 				<div class="rm-metric-body">
 					<span class="rm-metric-label">Workgroups with termed members</span>
 					<span class="rm-metric-value">{{ wgStats.workgroupsWithTermedMembers | number }}</span>
@@ -150,7 +150,14 @@
 		<button type="button" class="wg-clear-all-link" ng-click="clearAllWgFilters()">Clear All</button>
 	</div>
 
-	<div class="table-wrapper-fixed">
+	<div class="data-table-panel">
+		<div class="wg-table-loading-overlay" ng-if="wgLoading">
+			<div class="wg-table-loading-inner">
+				<div class="page-loading-spinner" aria-hidden="true"></div>
+				<span>Loading workgroups…</span>
+			</div>
+		</div>
+		<div class="table-wrapper-fixed data-table-panel__scroll">
 		<table class="role-table" ng-if="workgroupRows.length > 0">
 			<thead>
 				<tr>
@@ -208,20 +215,18 @@
 			<i class="fas fa-users-slash"></i>
 			<p>No workgroups found.</p>
 		</div>
-	</div>
+		</div>
 
-	<div class="pagination-bar" ng-if="workgroupTotal > 0">
-		<span>Rows per page:</span>
-		<select ng-model="workgroupPageSize" ng-change="wgChangePageSize()">
-			<option ng-value="10">10</option>
-			<option ng-value="25">25</option>
-			<option ng-value="50">50</option>
-		</select>
-		<span>{{ workgroupStartDisplay() }} - {{ workgroupEndDisplay() }} of {{ workgroupTotal }}</span>
-		<button type="button" ng-click="wgGoToFirstPage()">&#171;</button>
-		<button type="button" ng-click="wgGoToPreviousPage()">&#8249;</button>
-		<button type="button" ng-click="wgGoToNextPage()">&#8250;</button>
-		<button type="button" ng-click="wgGoToLastPage()">&#187;</button>
+		<div class="data-table-panel__footer">
+			<pagination-bar
+				total-records="workgroupTotal"
+				page="workgroupCurrentPage"
+				page-size="workgroupPageSize"
+				page-size-options="[10,25,50]"
+				on-change="onWorkgroupPageChange(page, pageSize)"
+				on-refresh="loadWorkgroups()">
+			</pagination-bar>
+		</div>
 	</div>
 
 	<ui:include src="workgroupMembersModal.xhtml" />

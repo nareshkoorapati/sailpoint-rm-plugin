@@ -32,7 +32,6 @@
   import sailpoint.object.QueryOptions;
   import sailpoint.object.Bundle;
   import sailpoint.object.Filter;
-  import sailpoint.api.ObjectUtil;
 
   import sailpoint.tools.Util;
 
@@ -67,41 +66,43 @@
   map3.put("label", "Display Name");
   map3.put("key", "displayName");
   headers.add(map3);
-  
- 
+
+  Map map4 = new HashMap();
+  map4.put("label", "Status");
+  map4.put("key", "status");
+  headers.add(map4);
+
   returnMap.put("headers",headers);
-  
-  
-  List props = new ArrayList();
-  props.add("name");
-  props.add("displayName");
-  props.add("employeeid");
-  
-  
-  
-  
+
   List members = new ArrayList();
 		Identity workgroup = context.getObjectById(Identity.class, workgroupId);
-		if (workgroup.isWorkgroup()) {
-			
-			Iterator itr = ObjectUtil.getWorkgroupMembers(context, workgroup, props);
+		if (workgroup != null && workgroup.isWorkgroup()) {
+			QueryOptions qo = new QueryOptions();
+			qo.addFilter(Filter.eq("workgroups.id", workgroupId));
+			qo.addFilter(Filter.eq("workgroup", false));
+			qo.setOrderBy("name");
+			qo.setOrderAscending(true);
+			Iterator itr = context.search(Identity.class, qo);
 			if (itr != null) {
 				while(itr.hasNext()) {
-					Object[] row = (Object[])itr.next();
-					Map member = new HashMap();
-					member.put("name",(String)row[0]);
-					member.put("displayName",(String)row[1]);
-					member.put("employeeid",(String)row[2]);
-					members.add(member);
+					Identity member = (Identity)itr.next();
+					Map row = new HashMap();
+					row.put("name", member.getName());
+					row.put("displayName", member.getDisplayableName());
+					Object employeeId = member.getAttribute("employeeid");
+					row.put("employeeid", employeeId != null ? employeeId.toString() : "");
+					row.put("status", member.isInactive() ? "Inactive" : "Active");
+					members.add(row);
 				}
 				Util.flushIterator(itr);
 			}
 		}
-		else {
+		else if (workgroup != null) {
 			Map member = new HashMap();
 			member.put("name",workgroup.getName());
 			member.put("displayName",workgroup.getDisplayableName());
 			member.put("employeeid",workgroup.getAttribute("employeeid"));
+			member.put("status", workgroup.isInactive() ? "Inactive" : "Active");
 			members.add(member);
 		}
   

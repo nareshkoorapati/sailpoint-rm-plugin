@@ -16,7 +16,6 @@ import java.util.Set;
 
 import org.apache.log4j.Logger;
 
-import sailpoint.api.ObjectUtil;
 import sailpoint.api.SailPointContext;
 import sailpoint.object.Bundle;
 import sailpoint.object.Filter;
@@ -461,6 +460,83 @@ public class IdentityService {
 	}
 
 	/**
+	 * Normalize suggest query: strip non-alphanumeric characters, split on whitespace into tokens
+	 * (e.g. {@code "Naresh Koora!"} → {@code ["Naresh", "Koora"]}).
+	 */
+	private static List<String> parseSuggestQueryParts(String query) {
+		List<String> parts = new ArrayList<>();
+		if (Util.isNullOrEmpty(query)) {
+			return parts;
+		}
+		String normalized = query.trim().replaceAll("[^a-zA-Z0-9]+", " ").trim();
+		if (normalized.isEmpty()) {
+			return parts;
+		}
+		for (String segment : normalized.split("\\s+")) {
+			if (Util.isNotNullOrEmpty(segment)) {
+				parts.add(segment);
+			}
+		}
+		return parts;
+	}
+
+	private static Filter fieldStartsWithIgnoreCase(String property, String value) {
+		return Filter.ignoreCase(Filter.like(property, value, Filter.MatchMode.START));
+	}
+
+	private static Filter orSuggestFilters(List<Filter> filters) {
+		if (filters == null || filters.isEmpty()) {
+			return null;
+		}
+		if (filters.size() == 1) {
+			return filters.get(0);
+		}
+		return Filter.or(filters.toArray(new Filter[0]));
+	}
+
+	/**
+	 * Name matching aligned with IdentityIQ identity-selector Velocity (startsWithIgnoreCase on
+	 * firstname, lastname, name, displayName; two-token first+last and reversed order).
+	 */
+	private static Filter buildSuggestIdentityNameFilter(List<String> parts) {
+		if (parts == null || parts.isEmpty()) {
+			return null;
+		}
+
+		List<Filter> clauses = new ArrayList<>();
+
+		if (parts.size() == 1) {
+			String p0 = parts.get(0);
+			clauses.add(fieldStartsWithIgnoreCase("firstname", p0));
+			clauses.add(fieldStartsWithIgnoreCase("lastname", p0));
+			clauses.add(fieldStartsWithIgnoreCase("name", p0));
+			clauses.add(fieldStartsWithIgnoreCase("displayName", p0));
+		} else if (parts.size() == 2) {
+			String p0 = parts.get(0);
+			String p1 = parts.get(1);
+			String full = p0 + " " + p1;
+			clauses.add(Filter.and(
+					fieldStartsWithIgnoreCase("firstname", p0),
+					fieldStartsWithIgnoreCase("lastname", p1)));
+			clauses.add(Filter.and(
+					fieldStartsWithIgnoreCase("firstname", p1),
+					fieldStartsWithIgnoreCase("lastname", p0)));
+			clauses.add(fieldStartsWithIgnoreCase("displayName", full));
+			clauses.add(fieldStartsWithIgnoreCase("firstname", full));
+			clauses.add(fieldStartsWithIgnoreCase("name", full));
+		} else {
+			for (String part : parts) {
+				clauses.add(fieldStartsWithIgnoreCase("firstname", part));
+				clauses.add(fieldStartsWithIgnoreCase("lastname", part));
+				clauses.add(fieldStartsWithIgnoreCase("name", part));
+				clauses.add(fieldStartsWithIgnoreCase("displayName", part));
+			}
+		}
+
+		return orSuggestFilters(clauses);
+	}
+
+	/**
 	 * Typeahead search for identities. When {@code includeWorkgroups} is false, workgroups are excluded
 	 * (typical member pickers). When true, both person identities and workgroup identities are returned;
 	 * each row includes a boolean {@code workgroup}.
@@ -476,9 +552,10 @@ public class IdentityService {
 			ops.addFilter(Filter.in("workgroup", Util.csvToList("true,false")));
 		}
 		//ops.addFilter(Filter.eq("inactive", false));
-		if (Util.isNotNullOrEmpty(query)) {
-			String q = query.trim();
-			ops.addFilter(Filter.or(Filter.like("name", q), Filter.like("displayName", q)));
+		List<String> parts = parseSuggestQueryParts(query);
+		Filter nameFilter = buildSuggestIdentityNameFilter(parts);
+		if (nameFilter != null) {
+			ops.addFilter(nameFilter);
 		}
 		ops.setOrderBy("name");
 		ops.setOrderAscending(true);
@@ -632,34 +709,71 @@ public class IdentityService {
 
 	}
 	
-	public List<Map<String, Object>> getWorkGroupMembers(String workgroupId) throws GeneralException {
+	/**
+	 * Members for the workgroup members modal. Each row includes {@code status} derived from
+	 * {@link Identity#isInactive()} ({@code Active} / {@code Inactive}).
+	 */
+	public Map<String, Object> getWorkGroupMembers(String workgroupId) throws GeneralException {
+		Map<String, Object> result = new HashMap<>();
+		result.put("headers", workgroupMemberHeaders());
+
 		List<Map<String, Object>> members = new ArrayList<>();
 		Identity workgroup = _context.getObjectById(Identity.class, workgroupId);
+		if (workgroup == null) {
+			result.put("objects", members);
+			return result;
+		}
+
 		if (workgroup.isWorkgroup()) {
-			List<String> props = new ArrayList<>();
-			props.add("name");
-			props.add("displayName");
-			props.add("employeeid");
-			Iterator<Object[]> itr = ObjectUtil.getWorkgroupMembers(_context, workgroup, props);
+			QueryOptions qo = new QueryOptions();
+			qo.addFilter(Filter.eq("workgroups.id", workgroupId));
+			qo.addFilter(Filter.eq("workgroup", false));
+			qo.setOrderBy("name");
+			qo.setOrderAscending(true);
+			Iterator<Identity> itr = _context.search(Identity.class, qo);
 			if (itr != null) {
-				while(itr.hasNext()) {
-					Object[] row = (Object[])itr.next();
-					Map<String,Object> member = new HashMap<>();
-					member.put("name",(String)row[0]);
-					member.put("displayName",(String)row[1]);
-					member.put("employeeid",(String)row[2]);
-					members.add(member);
+				try {
+					while (itr.hasNext()) {
+						Identity member = itr.next();
+						if (member != null) {
+							members.add(workgroupMemberRow(member));
+						}
+					}
+				} finally {
+					Util.flushIterator(itr);
 				}
-				Util.flushIterator(itr);
 			}
+		} else {
+			members.add(workgroupMemberRow(workgroup));
 		}
-		else {
-			Map<String,Object> member = new HashMap<>();
-			member.put("name",workgroup.getName());
-			member.put("displayName",workgroup.getDisplayableName());
-			member.put("employeeid",workgroup.getAttribute("employeeid"));
-			members.add(member);
-		}
-		return members;
+
+		result.put("objects", members);
+		return result;
+	}
+
+	private static List<Map<String, Object>> workgroupMemberHeaders() {
+		List<Map<String, Object>> headers = new ArrayList<>();
+		headers.add(workgroupMemberHeader("Name", "name"));
+		headers.add(workgroupMemberHeader("NetworkId", "employeeid"));
+		headers.add(workgroupMemberHeader("Display Name", "displayName"));
+		headers.add(workgroupMemberHeader("Status", "status"));
+		return headers;
+	}
+
+	private static Map<String, Object> workgroupMemberHeader(String label, String key) {
+		Map<String, Object> header = new HashMap<>();
+		header.put("label", label);
+		header.put("key", key);
+		return header;
+	}
+
+	private static Map<String, Object> workgroupMemberRow(Identity identity) {
+		Map<String, Object> member = new HashMap<>();
+		member.put("name", identity.getName());
+		member.put("displayName", identity.getDisplayableName());
+		Object employeeId = identity.getAttribute("employeeid");
+		member.put("employeeid", employeeId != null ? employeeId.toString() : "");
+		member.put("status", identity.isInactive() ? "Inactive" : "Active");
+		return member;
 	}
 }

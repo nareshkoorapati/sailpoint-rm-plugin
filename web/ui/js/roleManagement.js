@@ -582,7 +582,7 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 		$scope.dashboardCardFoot = function (card) {
 			const t = (card && card.title ? String(card.title) : '').trim();
 			if (t === 'Total Roles') {
-				return 'IT & business roles';
+				return 'IT & Business roles';
 			}
 			if (t === 'Enabled/Requestable') {
 				return 'Active & requestable';
@@ -680,6 +680,14 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 			$scope.endIndex = Math.min($scope.startIndex + $scope.pageSize, $scope.totalCount);
 		};
 
+
+		$scope.onRolePageChange = function (page, pageSize) {
+			$scope.currentPage = page;
+			$scope.pageSize = pageSize;
+			$scope.selectedRoles = [];
+			$scope.roles.forEach(function (role) { role.selected = false; });
+			$scope.loadData();
+		};
 
 		$scope.changePageSize = function () {
 			$scope.currentPage = 1;

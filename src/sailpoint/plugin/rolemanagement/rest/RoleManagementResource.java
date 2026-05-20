@@ -93,7 +93,7 @@ public class RoleManagementResource extends BasePluginResource {
 	@Path("/workgroup/{groupId}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response getGroupMembers(@PathParam("groupId") String groupId) throws GeneralException {
-		Map<String, Object> workgroupMembers = getRoleService().getWorkGroupMembers(getLoggedInUserName(),groupId);
+		Map<String, Object> workgroupMembers = getIdentityService().getWorkGroupMembers(groupId);
 		return Response.ok(workgroupMembers).build();
 	}
 	
