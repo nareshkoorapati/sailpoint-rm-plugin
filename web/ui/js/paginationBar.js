@@ -216,8 +216,30 @@
 				};
 
 				scope.changePageSize = function (pageSize) {
-					scope.pageSize = pageSize;
-					commitPage(1, true);
+					var prevSize = parseInt(scope.pageSize, 10);
+					var newSize = parseInt(pageSize, 10);
+					if (isNaN(newSize) || newSize < 1) {
+						newSize = scope.pageSizeOptions[0] || 25;
+					}
+					var prevPage = currentPageNum();
+
+					scope.pageSize = newSize;
+					skipNextBlur = true;
+					suppressPageWatch = true;
+					scope.page = 1;
+					recalc();
+					syncPageInput(1);
+					suppressPageWatch = false;
+
+					// Page size changes must reload data even when already on page 1
+					// (commitPage only notifies when the page index changes).
+					if (angular.isFunction(scope.onChange) && (newSize !== prevSize || prevPage !== 1)) {
+						scope.onChange({ page: scope.page, pageSize: scope.pageSize });
+					}
+
+					$timeout(function () {
+						syncPageInput(1);
+					}, 0);
 				};
 
 				scope.refresh = function () {
