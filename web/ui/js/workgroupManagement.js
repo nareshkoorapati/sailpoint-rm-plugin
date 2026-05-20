@@ -84,8 +84,8 @@
 			$scope.wgMoreFilterOptions = [
 				{ value: '', label: 'All workgroups' },
 				{ value: 'assignedToRoles', label: 'Show Workgroups assigned to roles' },
-				{ value: 'singleMember', label: 'Show Single Member roles' },
-				{ value: 'termedMember', label: 'Show Termed Member roles' }
+				{ value: 'singleMember', label: 'Show Single Member workgroups' },
+				{ value: 'termedMember', label: 'Show Termed Member workgroups' }
 			];
 			$scope.showWgMembersModal = false;
 			$scope.wgMembers = [];
