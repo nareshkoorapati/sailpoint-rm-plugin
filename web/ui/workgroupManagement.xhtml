@@ -158,6 +158,22 @@
 					<th>Display name</th>
 					<th>Email</th>
 					<th>Description</th>
+					<th>
+						<span ng-click="wgSortBy('created')" style="cursor: pointer;">
+							Created
+							<i ng-if="wgSortColumn === 'created' &amp;&amp; wgSortDirection === 'ASC'" class="fas fa-sort-up"></i>
+							<i ng-if="wgSortColumn === 'created' &amp;&amp; wgSortDirection === 'DESC'" class="fas fa-sort-down"></i>
+							<i ng-if="wgSortColumn !== 'created'" class="fas fa-sort text-muted"></i>
+						</span>
+					</th>
+					<th>
+						<span ng-click="wgSortBy('modified')" style="cursor: pointer;">
+							Modified
+							<i ng-if="wgSortColumn === 'modified' &amp;&amp; wgSortDirection === 'ASC'" class="fas fa-sort-up"></i>
+							<i ng-if="wgSortColumn === 'modified' &amp;&amp; wgSortDirection === 'DESC'" class="fas fa-sort-down"></i>
+							<i ng-if="wgSortColumn !== 'modified'" class="fas fa-sort text-muted"></i>
+						</span>
+					</th>
 					<th>Members Count</th>
 					<th>Roles Count</th>
 					<th>Status</th>
@@ -170,6 +186,8 @@
 					<td>{{ wg.displayName }}</td>
 					<td>{{ wg.email }}</td>
 					<td>{{ wg.description }}</td>
+					<td>{{ formatWgDate(wg.created) }}</td>
+					<td>{{ formatWgDate(wg.modified) }}</td>
 					<td>{{ wg.membersCount }}</td>
 					<td>{{ wg.rolesCount }}</td>
 					<td>

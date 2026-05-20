@@ -4,6 +4,7 @@
 package sailpoint.plugin.rolemanagement.service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +33,8 @@ import sailpoint.tools.Util;
 public class IdentityService {
 
 	private static final Logger logger = Logger.getLogger(IdentityService.class);
+	private static final Set<String> WORKGROUP_SORT_COLUMNS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+			"name", "displayName", "email", "description", "created", "modified")));
 
 	private PluginContext pluginContext;
 	private SailPointContext _context;
@@ -88,7 +91,7 @@ public class IdentityService {
 			String q = query.trim();
 			ops.addFilter(Filter.or(Filter.like("name", q), Filter.like("displayName", q)));
 		}
-		String orderBy = Util.isNotNullOrEmpty(sort) ? sort : "name";
+		String orderBy = resolveWorkgroupSortColumn(sort);
 		ops.setOrderBy(orderBy);
 		ops.setOrderAscending(dir != null && "ASC".equalsIgnoreCase(dir));
 
@@ -108,6 +111,8 @@ public class IdentityService {
 				row.put("disabled", wg.isInactive());
 				row.put("email", wg.getEmail());
 				row.put("description", wg.getDescription());
+				row.put("created", wg.getCreated());
+				row.put("modified", wg.getModified());
 
 				//Members count
 				
@@ -129,6 +134,13 @@ public class IdentityService {
 		result.put("start", start);
 		result.put("limit", limit);
 		return result;
+	}
+
+	private String resolveWorkgroupSortColumn(String sort) {
+		if (Util.isNotNullOrEmpty(sort) && WORKGROUP_SORT_COLUMNS.contains(sort.trim())) {
+			return sort.trim();
+		}
+		return "name";
 	}
 
 	private Set<String> workgroupIdsForMoreFilter(String moreFilter) throws GeneralException {

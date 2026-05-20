@@ -49,6 +49,8 @@
 			$scope.workgroupCurrentPage = 1;
 			$scope.workgroupTotal = 0;
 			$scope.workgroupRows = [];
+			$scope.wgSortColumn = 'name';
+			$scope.wgSortDirection = 'ASC';
 			$scope.workgroupSearchText = '';
 			$scope.showWgMemberFilterDropdown = false;
 			$scope.wgFilterMemberSearch = '';
@@ -352,13 +354,44 @@
 				);
 			};
 
+			$scope.formatWgDate = function (value) {
+				if (value == null || value === '') {
+					return '';
+				}
+				var d = new Date(value);
+				if (isNaN(d.getTime())) {
+					return '';
+				}
+				var pad = function (n) {
+					return n < 10 ? '0' + n : String(n);
+				};
+				var month = pad(d.getMonth() + 1);
+				var day = pad(d.getDate());
+				var year = d.getFullYear();
+				var hours = pad(d.getHours());
+				var minutes = pad(d.getMinutes());
+				var seconds = pad(d.getSeconds());
+				return month + '/' + day + '/' + year + ' ' + hours + ':' + minutes + ':' + seconds;
+			};
+
+			$scope.wgSortBy = function (columnName) {
+				if ($scope.wgSortColumn === columnName) {
+					$scope.wgSortDirection = $scope.wgSortDirection === 'ASC' ? 'DESC' : 'ASC';
+				} else {
+					$scope.wgSortColumn = columnName;
+					$scope.wgSortDirection = 'ASC';
+				}
+				$scope.workgroupCurrentPage = 1;
+				$scope.loadWorkgroups();
+			};
+
 			$scope.loadWorkgroups = function () {
 				const start = ($scope.workgroupCurrentPage - 1) * $scope.workgroupPageSize;
 				const params = {
 					start: start,
 					limit: $scope.workgroupPageSize,
-					sort: 'name',
-					dir: 'ASC'
+					sort: $scope.wgSortColumn || 'name',
+					dir: $scope.wgSortDirection || 'ASC'
 				};
 				const q = ($scope.workgroupSearchText || '').trim();
 				if (q.length > 0) {
