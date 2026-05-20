@@ -157,12 +157,11 @@
 				<span>Loading workgroups…</span>
 			</div>
 		</div>
-		<div class="table-wrapper-fixed data-table-panel__scroll">
+		<div class="table-wrapper-fixed data-table-panel__scroll" resizable-columns="true">
 		<table class="role-table" ng-if="workgroupRows.length > 0">
 			<thead>
 				<tr>
-					<th>Name</th>
-					<th>Display name</th>
+					<th>Workgroup Name</th>
 					<th>Email</th>
 					<th>Description</th>
 					<th>
@@ -189,10 +188,9 @@
 			</thead>
 			<tbody>
 				<tr ng-repeat="wg in workgroupRows">
-					<td>{{ wg.name }}</td>
-					<td>{{ wg.displayName }}</td>
-					<td>{{ wg.email }}</td>
-					<td>{{ wg.description }}</td>
+					<td title="{{ wg.name }}">{{ wg.name }}</td>
+					<td title="{{ wg.email }}">{{ wg.email }}</td>
+					<td title="{{ wg.description }}">{{ wg.description }}</td>
 					<td>{{ formatWgDate(wg.created) }}</td>
 					<td>{{ formatWgDate(wg.modified) }}</td>
 					<td>{{ wg.membersCount }}</td>

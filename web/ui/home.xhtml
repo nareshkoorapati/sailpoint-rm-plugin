@@ -291,7 +291,7 @@
 </div>
 
 <div class="data-table-panel">
-	<div class="table-wrapper-fixed data-table-panel__scroll" ng-init="loadData()">
+	<div class="table-wrapper-fixed data-table-panel__scroll" resizable-columns="true" ng-init="loadData()">
 	<table class="role-table" ng-if="roles.length > 0">
 		<thead>
 			<tr>
@@ -335,7 +335,8 @@
 				    <img ng-if="role.accessPrivilege === 'Admin'" ng-src="#{plugins.requestContextPath}/plugin/rolemanagement/ui/images/icon-a.png" title="NAC" width="16" height="16" />
 				    
 				</td>
-				<td ng-repeat="col in allColumns" ng-if="visibleColumns[col.name]">
+				<td ng-repeat="col in allColumns" ng-if="visibleColumns[col.name]"
+					title="{{ getRoleValue(role, col.name) }}">
 					{{ getRoleValue(role, col.name) }}
 				</td>
 				<td class="sticky-action-column">

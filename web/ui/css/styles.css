@@ -296,9 +296,11 @@ body {
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   flex-grow: 1;
   max-height: 560px;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Table + pagination as one card: body scrolls, footer stays visible */
@@ -324,6 +326,8 @@ body {
   border: none;
   border-radius: 0;
   box-shadow: none;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 .data-table-panel__footer {
@@ -461,8 +465,94 @@ body {
   position: sticky;
   top: 0;
   z-index: 1;
-  cursor: move;
   color: #374151;
+}
+
+/* Resizable data tables (workgroups, roles, bulk lists) */
+.role-table.role-table--resizable {
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.role-table.role-table--resizable thead th:not(.sticky-action-column) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  background-color: #f3f4f6;
+}
+
+.role-table.role-table--resizable tbody td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.role-table.role-table--resizable thead th .col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+  touch-action: none;
+}
+
+.role-table.role-table--resizable thead th .col-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  right: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: #cbd5e1;
+}
+
+.role-table.role-table--resizable thead th:hover .col-resize-handle::after {
+  background: #10a2ce;
+}
+
+body.col-resize-active {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.col-resize-active * {
+  cursor: col-resize !important;
+}
+
+/* Actions column: pinned to the right while other columns scroll horizontally */
+.role-table .sticky-action-column {
+  position: sticky;
+  right: 0;
+  width: 88px;
+  min-width: 88px;
+  max-width: 88px;
+  text-align: center;
+  vertical-align: middle;
+  background: #fff;
+  box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08);
+  border-left: 1px solid #e5e7eb;
+  z-index: 4;
+}
+
+.role-table thead th.sticky-action-column {
+  top: 0;
+  background: #f3f4f6;
+  z-index: 6;
+}
+
+.role-table tr:hover td.sticky-action-column {
+  background: #f0f8ff;
 }
 
 .role-table tr:hover {
@@ -1539,24 +1629,6 @@ body {
   font-style: italic;
   background-color: #fafafa;
 }
-.sticky-action-column {
-  position: sticky;
-  right: 0;
-  background: white;
-  z-index: 3;
-}
-
-thead .sticky-action-column {
-  position: sticky;
-  right: 0;
-  background: #f3f4f6;
-  z-index: 3;
-}
-
-.role-table thead th.sticky-action-column {
-  z-index: 4;
-}
-
 html input[disabled], select[disabled] {
     background-color: #f0f0f0;
     cursor: not-allowed;
