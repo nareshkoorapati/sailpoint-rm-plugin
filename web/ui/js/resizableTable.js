@@ -6,7 +6,7 @@
 	'use strict';
 
 	var MIN_COL_WIDTH = 72;
-	var DEFAULT_COL_WIDTH = 140;
+	var DEFAULT_COL_WIDTH = 150;
 
 	function isNonResizableHeader(th) {
 		if (!th || th.classList.contains('sticky-action-column')) {
@@ -85,8 +85,7 @@
 				}
 
 				if (!th.style.width && !th.style.minWidth) {
-					var initial = th.offsetWidth > 0 ? th.offsetWidth : DEFAULT_COL_WIDTH;
-					applyColumnWidth(table, idx, Math.max(MIN_COL_WIDTH, initial));
+					applyColumnWidth(table, idx, DEFAULT_COL_WIDTH);
 				}
 
 				var handle = document.createElement('span');

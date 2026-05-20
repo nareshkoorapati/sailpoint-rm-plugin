@@ -481,17 +481,21 @@ body {
   position: sticky;
   top: 0;
   z-index: 2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.35;
   vertical-align: middle;
   background-color: #f3f4f6;
 }
 
-.role-table.role-table--resizable tbody td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.role-table.role-table--resizable tbody td:not(.sticky-action-column) {
+  overflow: visible;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
   vertical-align: top;
 }
 
