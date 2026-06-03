@@ -81,25 +81,11 @@ public class SimpleCsvParser {
         List<String> headerRow = rows.get(0);
         int headerSize = headerRow.size();
 
-        // normalize header names (trim)
-        List<String> headers = new ArrayList<>(headerSize);
-        for (String h : headerRow) {
-            headers.add(h != null ? h.trim() : "");
-        }
+        List<String> headers = CsvParseUtil.normalizeHeaders(headerRow);
 
-        // remaining rows = data
         for (int i = 1; i < rows.size(); i++) {
             List<String> row = rows.get(i);
-            Map<String, String> map = new HashMap<>();
-
-            for (int c = 0; c < headerSize; c++) {
-                String key = headers.get(c);
-                // If row is shorter, missing values become null/empty
-                String value = (c < row.size()) ? row.get(c) : null;
-                map.put(key, value);
-            }
-
-            result.add(map);
+            result.add(CsvParseUtil.toRowMap(headers, row));
         }
 
         return result;

@@ -22,7 +22,7 @@ import sailpoint.object.TaskSchedule;
 import sailpoint.plugin.rolemanagement.dao.RmeBatchRequestDao;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequest;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequestItem;
-import sailpoint.plugin.rolemanagement.util.SimpleCsvParser;
+import sailpoint.plugin.rolemanagement.util.CsvParseUtil;
 import sailpoint.task.BasePluginTaskExecutor;
 import sailpoint.tools.GeneralException;
 import sailpoint.tools.IOUtil;
@@ -89,9 +89,8 @@ public class RMEBatchRequestProcessor extends BasePluginTaskExecutor{
 			String batchId = (String)attrs.get("batchId");
 			
 			
+			RFC4180LineParser parser = null;
 			String dlm = ",";
-			
-			RFC4180LineParser parser = new RFC4180LineParser(dlm);
 			
 			Map<String,Object> config = (Map<String, Object>) attrs.get("config");
 			logger.error("Existing config "+config);
@@ -124,9 +123,12 @@ public class RMEBatchRequestProcessor extends BasePluginTaskExecutor{
 					throw new GeneralException("No Role Batch Update recordss found with batch id "+batchId);
 				}
 
-				String header = batchRequest.getHeader();				
+				String header = CsvParseUtil.stripUtf8Bom(batchRequest.getHeader());
+				dlm = CsvParseUtil.detectDelimiter(header);
+				parser = new RFC4180LineParser(dlm);
 				LinkedList<String> headerList = new LinkedList<String>();
-				headerList.addAll(parser.parseLine(header));
+				headerList.addAll(CsvParseUtil.normalizeHeaders(parser.parseLine(header)));
+				logger.error("Normalized batch CSV headers: " + headerList);
 				
 				//get Config
 				String runConfig = batchRequest.getRunConfig();
@@ -145,14 +147,9 @@ public class RMEBatchRequestProcessor extends BasePluginTaskExecutor{
 					if (item.getRoleId() == null) continue;
 					
 					List<String> tokens = parser.parseLine(item.getRequestData().trim());
-					
-					
-					HashMap<String,String> row = new HashMap<String,String>();
-					for(int i=0; i < tokens.size(); i++) {
-						String headerString  = headerList.get(i);
-						String valueString = tokens.get(i);
-						row.put(headerString, valueString);
-					}
+
+					HashMap<String, String> row = new HashMap<String, String>(
+							CsvParseUtil.toRowMap(headerList, tokens));
 						
 					Map<String,Object> result = processRMEBatchRequest(row,config);
 						

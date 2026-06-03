@@ -22,6 +22,7 @@ import sailpoint.object.TaskSchedule;
 import sailpoint.plugin.rolemanagement.dao.RmeBatchRequestDao;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequest;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequestItem;
+import sailpoint.plugin.rolemanagement.util.CsvParseUtil;
 
 import sailpoint.task.BasePluginTaskExecutor;
 import sailpoint.tools.GeneralException;
@@ -106,26 +107,27 @@ public class RMEBatchRequestExecutor extends BasePluginTaskExecutor{
 
 			logger.info("payload config "+attrs.get("config"));
 
-			String csvText = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
+			String csvText = CsvParseUtil.stripUtf8Bom(
+					new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8));
 			logger.info("payload csvText "+csvText);
 
-			List<String> lines = new ArrayList<String>();
+			List<String> lines = CsvParseUtil.nonEmptyLines(csvText);
 			StringBuilder sb = new StringBuilder();
 			String newLine = System.lineSeparator();
-			for (String l : csvText.split("\\r?\\n")) {
-			    if (l != null && !l.trim().isEmpty()) {
-			    	l = l.trim();
-			        lines.add(l);
-			        sb.append(l);
-			        sb.append(newLine);
-			        logger.error(l);
-			    }
+			for (String l : lines) {
+				sb.append(l);
+				sb.append(newLine);
+				logger.error(l);
 			}
 
 			logger.error("payload lines "+lines);
-			
-			String dlm = ",";
-			
+
+			if (lines.isEmpty()) {
+				throw new GeneralException("Uploaded CSV file has no data rows.");
+			}
+
+			String dlm = CsvParseUtil.detectDelimiter(lines.get(0));
+
 			RFC4180LineParser parser = new RFC4180LineParser(dlm);
 			XMLObjectFactory factory = XMLObjectFactory.getInstance();
 			Attributes<String,Object> configAttr = new Attributes<String,Object>();
@@ -175,19 +177,15 @@ public class RMEBatchRequestExecutor extends BasePluginTaskExecutor{
 				
 				LinkedList<String> headerList = new LinkedList<String>();
 
-				for(String line : lines) {
-					
+				for (String line : lines) {
+
 					List<String> tokens = parser.parseLine(line);
 					if (count == 0) {
-						headerList.addAll(tokens);
-					}
-					else {
-						HashMap<String,String> row = new HashMap<String,String>();
-						for(int i=0; i < tokens.size(); i++) {
-							String headerString  = headerList.get(i);
-							String valueString = tokens.get(i);
-							row.put(headerString, valueString);
-						}
+						headerList.addAll(CsvParseUtil.normalizeHeaders(tokens));
+						logger.error("Normalized CSV headers: " + headerList);
+					} else {
+						HashMap<String, String> row = new HashMap<String, String>(
+								CsvParseUtil.toRowMap(headerList, tokens));
 						RmeBatchRequestItem item = new RmeBatchRequestItem();
 						item.setId(Util.uuid());
 						item.setCreated(System.currentTimeMillis());

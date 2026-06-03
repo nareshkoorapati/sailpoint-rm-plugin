@@ -24,7 +24,7 @@ import sailpoint.plugin.PluginContext;
 import sailpoint.plugin.rolemanagement.dao.RmeBatchRequestDao;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequest;
 import sailpoint.plugin.rolemanagement.model.RmeBatchRequestItem;
-import sailpoint.plugin.rolemanagement.util.BulkUploadTemplateExcelBuilder;
+import sailpoint.plugin.rolemanagement.util.BulkUploadTemplateCsvBuilder;
 import sailpoint.plugin.rolemanagement.util.RuleUtil;
 import sailpoint.plugin.rolemanagement.util.Constants;
 import sailpoint.tools.GeneralException;
@@ -232,32 +232,33 @@ public class RmeBatchRequestService {
 			String ruleName = (String) customObj.get(Constants.DOWNLOAD_BULK_UPLOAD_TEMPLATE);
 			Map<String, Object> params = new HashMap<String, Object>();
 			params.put("roleType", roleType);
+			if (loggedInIdentity != null && Util.isNotNullOrEmpty(loggedInIdentity.getName())) {
+				params.put("loggedInUser", loggedInIdentity.getName());
+			}
 			Object ruleResult = RuleUtil.runIIQRule(_context, ruleName, params);
 
-			byte[] excelBytes = null;
+			byte[] csvBytes = null;
 			if (ruleResult instanceof Map) {
-				excelBytes = BulkUploadTemplateExcelBuilder.build((Map<String, Object>) ruleResult);
+				csvBytes = BulkUploadTemplateCsvBuilder.build((Map<String, Object>) ruleResult);
 			} else if (ruleResult instanceof String) {
-				excelBytes = java.util.Base64.getDecoder().decode((String) ruleResult);
+				String csvText = (String) ruleResult;
+				csvBytes = csvText.getBytes(java.nio.charset.StandardCharsets.UTF_8);
 			} else if (ruleResult instanceof byte[]) {
-				excelBytes = (byte[]) ruleResult;
+				csvBytes = (byte[]) ruleResult;
 			}
 
-			if (excelBytes == null || excelBytes.length == 0) {
+			if (csvBytes == null || csvBytes.length == 0) {
 				throw new GeneralException("Bulk upload template rule returned empty content. Type: "
 						+ (ruleResult != null ? ruleResult.getClass().getName() : "null"));
 			}
-			if (excelBytes.length < 4 || excelBytes[0] != 'P' || excelBytes[1] != 'K') {
-				throw new GeneralException("Bulk upload template rule did not return valid xlsx content");
-			}
 
 			String fileName = "it".equalsIgnoreCase(roleType)
-					? "IT_Role_BulkUpload_Template.xlsx"
-					: "Business_Role_BulkUpload_Template.xlsx";
+					? "IT_Role_BulkUpload_Template.csv"
+					: "Business_Role_BulkUpload_Template.csv";
 
 			Map<String, String> result = new HashMap<String, String>();
 			result.put("fileName", fileName);
-			result.put("content", java.util.Base64.getEncoder().encodeToString(excelBytes));
+			result.put("content", java.util.Base64.getEncoder().encodeToString(csvBytes));
 			return result;
 		} catch (Exception e) {
 			log("Error in downloadBatchRequestTemplate " + e);

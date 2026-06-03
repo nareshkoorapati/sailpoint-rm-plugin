@@ -288,13 +288,13 @@ RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  fun
     };
 
     /**
-     * Downloads the Excel template for bulk role upload for the selected role type.
+     * Downloads the CSV template for bulk role upload for the selected role type.
      */
     $scope.downloadTemplate = function () {
         var roleType = ($scope.templateDownload.roleType || 'it').toLowerCase();
         var fileName = roleType === 'business'
-            ? 'Business_Role_BulkUpload_Template.xlsx'
-            : 'IT_Role_BulkUpload_Template.xlsx';
+            ? 'Business_Role_BulkUpload_Template.csv'
+            : 'IT_Role_BulkUpload_Template.csv';
 
         $scope.templateDownloadInProgress = true;
         $http.get(PluginHelper.getPluginRestUrl("rolemanagement/batch/downloadTemplate"), {
@@ -313,15 +313,8 @@ RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  fun
                 for (var i = 0; i < binary.length; i++) {
                     bytes[i] = binary.charCodeAt(i);
                 }
-                if (bytes.length < 2 || bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
-                    console.warn('Template download: unexpected content prefix', bytes[0], bytes[1]);
-                    $scope.showToast('Download failed: invalid file content', 'error');
-                    return;
-                }
 
-                var blob = new Blob([bytes], {
-                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                });
+                var blob = new Blob([bytes], { type: 'text/csv;charset=utf-8' });
                 var url = window.URL.createObjectURL(blob);
                 var link = document.createElement('a');
                 link.href = url;
@@ -423,6 +416,10 @@ RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  fun
 
         reader.onload = function (e) {
             var text = e.target.result || '';
+            // Some editors prefix UTF-8 BOM on the first column header
+            if (text.length && text.charCodeAt(0) === 0xFEFF) {
+                text = text.substring(1);
+            }
             var errors = [];
             if (!text.trim().length === 0) {
                 errors.push('Uploaded file is empty.');
