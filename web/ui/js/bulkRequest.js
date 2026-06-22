@@ -275,11 +275,12 @@ RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  fun
     };
 
     $scope.showTemplateDownloadModal = false;
-    $scope.templateDownload = { roleType: 'it' };
+    $scope.templateDownload = { roleType: 'it', templateType: 'bulk' };
     $scope.templateDownloadInProgress = false;
 
     $scope.openTemplateDownloadModal = function () {
         $scope.templateDownload.roleType = 'it';
+        $scope.templateDownload.templateType = 'bulk';
         $scope.showTemplateDownloadModal = true;
     };
 
@@ -288,17 +289,29 @@ RoleApp.controller('BulkRequestController', ['$scope', '$http', '$timeout',  fun
     };
 
     /**
-     * Downloads the CSV template for bulk role upload for the selected role type.
+     * Downloads a CSV template or role attribute definition for the selected options.
      */
     $scope.downloadTemplate = function () {
         var roleType = ($scope.templateDownload.roleType || 'it').toLowerCase();
-        var fileName = roleType === 'business'
-            ? 'Business_Role_BulkUpload_Template.csv'
-            : 'IT_Role_BulkUpload_Template.csv';
+        var templateType = ($scope.templateDownload.templateType || 'bulk');
+        var isAttributeDefinition = templateType === 'attributeDefinition';
+        var fileName;
+        if (isAttributeDefinition) {
+            fileName = roleType === 'business'
+                ? 'Business_Role_Attribute_Definitions.csv'
+                : 'IT_Role_Attribute_Definitions.csv';
+        } else {
+            fileName = roleType === 'business'
+                ? 'Business_Role_BulkUpload_Template.csv'
+                : 'IT_Role_BulkUpload_Template.csv';
+        }
 
         $scope.templateDownloadInProgress = true;
         $http.get(PluginHelper.getPluginRestUrl("rolemanagement/batch/downloadTemplate"), {
-            params: { roleType: roleType }
+            params: {
+                roleType: roleType,
+                templateType: templateType
+            }
         })
             .then(function (response) {
                 var payload = response.data || {};

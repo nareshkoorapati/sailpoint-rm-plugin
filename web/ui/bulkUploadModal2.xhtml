@@ -443,7 +443,24 @@
 							class="fa-solid fa-xmark"></i></span>
 					</div>
 					<div class="custom-modal-body">
-						<p style="margin-bottom: 12px;">Select the role type for the bulk upload template.</p>
+						<p style="margin-bottom: 12px;">Select what to download and the role type.</p>
+						<div class="form-row" style="display: block; margin-bottom: 16px;">
+							<label class="form-label" style="display: block; margin-bottom: 8px;">Download Type</label>
+							<div class="form-field">
+								<label class="radio-option">
+									<input type="radio"
+									       ng-model="templateDownload.templateType"
+									       value="bulk" />
+									Bulk Upload Template
+								</label>
+								<label class="radio-option">
+									<input type="radio"
+									       ng-model="templateDownload.templateType"
+									       value="attributeDefinition" />
+									Role Attribute Definition
+								</label>
+							</div>
+						</div>
 						<div class="form-row" style="display: block; margin-bottom: 0;">
 							<label class="form-label" style="display: block; margin-bottom: 8px;">Role Type</label>
 							<div class="form-field">

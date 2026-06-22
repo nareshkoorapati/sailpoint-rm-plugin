@@ -224,14 +224,17 @@ public class RmeBatchRequestService {
 		}
 	}
 	
-	public Map<String, String> downloadBatchRequestTemplate(String roleType) throws Exception {
-		log("Enter downloadBatchRequestTemplate roleType=" + roleType);
+	public Map<String, String> downloadBatchRequestTemplate(String roleType, String templateType) throws Exception {
+		log("Enter downloadBatchRequestTemplate roleType=" + roleType + " templateType=" + templateType);
 
 		try {
+			String normalizedTemplateType = normalizeTemplateType(templateType);
+
 			Custom customObj = _context.getObjectByName(Custom.class, customObjectName);
 			String ruleName = (String) customObj.get(Constants.DOWNLOAD_BULK_UPLOAD_TEMPLATE);
 			Map<String, Object> params = new HashMap<String, Object>();
 			params.put("roleType", roleType);
+			params.put("templateType", normalizedTemplateType);
 			if (loggedInIdentity != null && Util.isNotNullOrEmpty(loggedInIdentity.getName())) {
 				params.put("loggedInUser", loggedInIdentity.getName());
 			}
@@ -252,9 +255,7 @@ public class RmeBatchRequestService {
 						+ (ruleResult != null ? ruleResult.getClass().getName() : "null"));
 			}
 
-			String fileName = "it".equalsIgnoreCase(roleType)
-					? "IT_Role_BulkUpload_Template.csv"
-					: "Business_Role_BulkUpload_Template.csv";
+			String fileName = resolveTemplateFileName(roleType, normalizedTemplateType);
 
 			Map<String, String> result = new HashMap<String, String>();
 			result.put("fileName", fileName);
@@ -264,6 +265,34 @@ public class RmeBatchRequestService {
 			log("Error in downloadBatchRequestTemplate " + e);
 			throw e;
 		}
+	}
+
+	private static String normalizeTemplateType(String templateType) throws GeneralException {
+		String normalized = templateType != null ? templateType.trim() : "bulk";
+		if (Util.isNullOrEmpty(normalized)) {
+			normalized = "bulk";
+		}
+		if ("bulk".equalsIgnoreCase(normalized) || "upload".equalsIgnoreCase(normalized)) {
+			return "bulk";
+		}
+		if ("attributeDefinition".equalsIgnoreCase(normalized)
+				|| "attribute_definition".equalsIgnoreCase(normalized)
+				|| "attributes".equalsIgnoreCase(normalized)) {
+			return "attributeDefinition";
+		}
+		throw new GeneralException("templateType must be 'bulk' or 'attributeDefinition'");
+	}
+
+	private static String resolveTemplateFileName(String roleType, String templateType) {
+		boolean business = "business".equalsIgnoreCase(roleType);
+		if ("attributeDefinition".equals(templateType)) {
+			return business
+					? "Business_Role_Attribute_Definitions.csv"
+					: "IT_Role_Attribute_Definitions.csv";
+		}
+		return business
+				? "Business_Role_BulkUpload_Template.csv"
+				: "IT_Role_BulkUpload_Template.csv";
 	}
 
 	public Map<String, Object> getConfig() throws Exception {

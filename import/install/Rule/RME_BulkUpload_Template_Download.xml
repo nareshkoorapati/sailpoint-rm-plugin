@@ -1,88 +1,229 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
-<Rule created="1765141266776" id="c0a8050b9ae51390819afa9e41580b9b" language="beanshell" modified="1765143395591" name="CNC_RME_BulkUpload_Template_Download">
-  <Description>Builds bulk-upload CSV template metadata for IT or Business roles. Plugin Java code converts roleHeader to a downloadable .csv file.</Description>
-  <Signature returnType="java.util.Map">
-    <Inputs>
-      <Argument name="context">
-        <Description>
-          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
-        </Description>
-      </Argument>
-      <Argument name="roleType">
-        <Description>Role type for the template: "it" or "business".</Description>
-      </Argument>
-      <Argument name="loggedInUser">
-        <Description>Name of the identity downloading the template (used for RMEAdministrator check).</Description>
-      </Argument>
-    </Inputs>
-  </Signature>
-  <Source>
-
-  import java.util.ArrayList;
-  import java.util.HashMap;
-  import java.util.List;
-  import java.util.Map;
-
-  import sailpoint.object.Identity;
-  import sailpoint.object.Identity.CapabilityManager;
-  import sailpoint.object.ObjectAttribute;
-  import sailpoint.object.ObjectConfig;
-  import sailpoint.object.RoleTypeDefinition;
-  import sailpoint.tools.Util;
-
-  String roleTypeArg = roleType != null ? roleType.toString().trim().toLowerCase() : "it";
-  boolean isItRole = "it".equals(roleTypeArg);
-  boolean isBusinessRole = "business".equals(roleTypeArg);
-  if (!isItRole &amp;&amp; !isBusinessRole) {
-    throw new IllegalArgumentException("roleType must be 'it' or 'business'");
-  }
-
-  ObjectConfig objConfig = context.getObjectByName(ObjectConfig.class, "Bundle");
-  RoleTypeDefinition roleDef = objConfig.getRoleType(isItRole ? "it" : "business");
-  List disAllowedAttributes = roleDef.getDisallowedAttributes();
-  List objectAttributes = objConfig.getObjectAttributes();
-
-  List roleHeader = new ArrayList();
-  roleHeader.add("Role Name");
-  roleHeader.add("DisplayName");
-  roleHeader.add("Type");
-  roleHeader.add("Owner");
-  roleHeader.add("Description");
-  roleHeader.add("Disabled");
-
-  for (ObjectAttribute objAttr : Util.safeIterable(objectAttributes)) {
-    if (!Util.nullSafeContains(disAllowedAttributes, objAttr.getName())) {
-      roleHeader.add(objAttr.getName());
-    }
-  }
-
-  boolean rmeAdmin = false;
-  String loggedInUserName = loggedInUser != null ? loggedInUser.toString().trim() : "";
-  if (loggedInUserName.length() > 0) {
-    Identity user = context.getObjectByName(Identity.class, loggedInUserName);
-    if (user != null) {
-      CapabilityManager cm = user.getCapabilityManager();
-      if (cm != null &amp;&amp; cm.hasCapability("RMEAdministrator")) {
-        rmeAdmin = true;
-      }
-    }
-  }
-
-  if (rmeAdmin) {
-    if (isItRole) {
-      roleHeader.add("AddEntitlement");
-      roleHeader.add("RemoveEntitlement");
-    } else {
-      roleHeader.add("AddITRoles");
-      roleHeader.add("RemoveITRoles");
-    }
-  }
-
-  Map result = new HashMap();
-  result.put("roleHeader", roleHeader);
-  result.put("roleType", roleTypeArg);
-
-  return result;
-  </Source>
-</Rule>
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1765141266776" id="c0a8050b9ae51390819afa9e41580b9b" language="beanshell" modified="1765143395591" name="CNC_RME_BulkUpload_Template_Download">
+  <Description>Builds bulk-upload CSV template metadata or role attribute definition metadata for IT or Business roles.</Description>
+  <Signature returnType="java.util.Map">
+    <Inputs>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+      <Argument name="roleType">
+        <Description>Role type for the template: "it" or "business".</Description>
+      </Argument>
+      <Argument name="templateType">
+        <Description>Template to build: "bulk" (upload template) or "attributeDefinition" (attribute reference CSV).</Description>
+      </Argument>
+      <Argument name="loggedInUser">
+        <Description>Name of the identity downloading the template (used for RMEAdministrator check).</Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+  import java.util.ArrayList;
+  import java.util.HashMap;
+  import java.util.List;
+  import java.util.Locale;
+  import java.util.Map;
+
+  import sailpoint.object.Identity;
+  import sailpoint.object.Identity.CapabilityManager;
+  import sailpoint.object.ObjectAttribute;
+  import sailpoint.object.ObjectConfig;
+  import sailpoint.object.RoleTypeDefinition;
+  import sailpoint.tools.Util;
+
+  String roleTypeArg = roleType != null ? roleType.toString().trim().toLowerCase() : "it";
+  boolean isItRole = "it".equals(roleTypeArg);
+  boolean isBusinessRole = "business".equals(roleTypeArg);
+  if (!isItRole &amp;&amp; !isBusinessRole) {
+    throw new IllegalArgumentException("roleType must be 'it' or 'business'");
+  }
+
+  String templateTypeArg = templateType != null ? templateType.toString().trim() : "bulk";
+  boolean attributeDefinition = "attributedefinition".equalsIgnoreCase(templateTypeArg);
+
+  ObjectConfig objConfig = context.getObjectByName(ObjectConfig.class, "Bundle");
+  RoleTypeDefinition roleDef = objConfig.getRoleType(isItRole ? "it" : "business");
+  List disAllowedAttributes = roleDef.getDisallowedAttributes();
+  List objectAttributes = objConfig.getObjectAttributes();
+
+  boolean rmeAdmin = false;
+  String loggedInUserName = loggedInUser != null ? loggedInUser.toString().trim() : "";
+  if (loggedInUserName.length() &gt; 0) {
+    Identity user = context.getObjectByName(Identity.class, loggedInUserName);
+    if (user != null) {
+      CapabilityManager cm = user.getCapabilityManager();
+      if (cm != null &amp;&amp; cm.hasCapability("RMEAdministrator")) {
+        rmeAdmin = true;
+      }
+    }
+  }
+
+  List booleanAllowedValues = new ArrayList();
+  booleanAllowedValues.add("TRUE");
+  booleanAllowedValues.add("FALSE");
+
+  List typeAllowedValues = new ArrayList();
+  typeAllowedValues.add(isItRole ? "it" : "business");
+
+  Map result = new HashMap();
+  result.put("roleType", roleTypeArg);
+
+  if (attributeDefinition) {
+    List attributeRows = new ArrayList();
+
+    Map row = new HashMap();
+    row.put("name", "Role Name");
+    row.put("displayName", "Role Name");
+    row.put("type", "String");
+    row.put("allowedValues", new ArrayList());
+    attributeRows.add(row);
+
+    row = new HashMap();
+    row.put("name", "DisplayName");
+    row.put("displayName", "Display Name");
+    row.put("type", "String");
+    row.put("allowedValues", new ArrayList());
+    attributeRows.add(row);
+
+    row = new HashMap();
+    row.put("name", "Type");
+    row.put("displayName", "Type");
+    row.put("type", "String");
+    row.put("allowedValues", typeAllowedValues);
+    attributeRows.add(row);
+
+    row = new HashMap();
+    row.put("name", "Owner");
+    row.put("displayName", "Owner");
+    row.put("type", "String");
+    row.put("allowedValues", new ArrayList());
+    attributeRows.add(row);
+
+    row = new HashMap();
+    row.put("name", "Description");
+    row.put("displayName", "Description");
+    row.put("type", "String");
+    row.put("allowedValues", new ArrayList());
+    attributeRows.add(row);
+
+    row = new HashMap();
+    row.put("name", "Disabled");
+    row.put("displayName", "Disabled");
+    row.put("type", "Boolean");
+    row.put("allowedValues", booleanAllowedValues);
+    attributeRows.add(row);
+
+    for (ObjectAttribute objAttr : Util.safeIterable(objectAttributes)) {
+      if (!Util.nullSafeContains(disAllowedAttributes, objAttr.getName())) {
+        String displayName = objAttr.getDisplayableName(Locale.ENGLISH);
+        if (Util.isNullOrEmpty(displayName)) {
+          displayName = objAttr.getName();
+        }
+
+        String attrType = objAttr.getType();
+        if (Util.isNullOrEmpty(attrType)) {
+          attrType = "String";
+        } else if ("boolean".equalsIgnoreCase(attrType)) {
+          attrType = "Boolean";
+        } else if ("string".equalsIgnoreCase(attrType)) {
+          attrType = "String";
+        } else {
+          attrType = attrType.substring(0, 1).toUpperCase() + attrType.substring(1).toLowerCase();
+        }
+
+        List allowedList = new ArrayList();
+        if ("boolean".equals(objAttr.getType())) {
+          allowedList.addAll(booleanAllowedValues);
+        } else {
+          List allowedValues = objAttr.getAllowedValues();
+          if (allowedValues != null &amp;&amp; !allowedValues.isEmpty()) {
+            for (Object valueObj : allowedValues) {
+              if (valueObj != null) {
+                String value = String.valueOf(valueObj).trim();
+                if (value.length() &gt; 0 &amp;&amp; !allowedList.contains(value)) {
+                  allowedList.add(value);
+                }
+              }
+            }
+          }
+        }
+
+        row = new HashMap();
+        row.put("name", objAttr.getName());
+        row.put("displayName", displayName);
+        row.put("type", attrType);
+        row.put("allowedValues", allowedList);
+        attributeRows.add(row);
+      }
+    }
+
+    if (rmeAdmin) {
+      if (isItRole) {
+        row = new HashMap();
+        row.put("name", "AddEntitlement");
+        row.put("displayName", "Add Entitlement");
+        row.put("type", "String");
+        row.put("allowedValues", new ArrayList());
+        attributeRows.add(row);
+
+        row = new HashMap();
+        row.put("name", "RemoveEntitlement");
+        row.put("displayName", "Remove Entitlement");
+        row.put("type", "String");
+        row.put("allowedValues", new ArrayList());
+        attributeRows.add(row);
+      } else {
+        row = new HashMap();
+        row.put("name", "AddITRoles");
+        row.put("displayName", "Add IT Roles");
+        row.put("type", "String");
+        row.put("allowedValues", new ArrayList());
+        attributeRows.add(row);
+
+        row = new HashMap();
+        row.put("name", "RemoveITRoles");
+        row.put("displayName", "Remove IT Roles");
+        row.put("type", "String");
+        row.put("allowedValues", new ArrayList());
+        attributeRows.add(row);
+      }
+    }
+
+    result.put("templateType", "attributeDefinition");
+    result.put("attributeRows", attributeRows);
+    return result;
+  }
+
+  List roleHeader = new ArrayList();
+  roleHeader.add("Role Name");
+  roleHeader.add("DisplayName");
+  roleHeader.add("Type");
+  roleHeader.add("Owner");
+  roleHeader.add("Description");
+  roleHeader.add("Disabled");
+
+  for (ObjectAttribute objAttr : Util.safeIterable(objectAttributes)) {
+    if (!Util.nullSafeContains(disAllowedAttributes, objAttr.getName())) {
+      roleHeader.add(objAttr.getName());
+    }
+  }
+
+  if (rmeAdmin) {
+    if (isItRole) {
+      roleHeader.add("AddEntitlement");
+      roleHeader.add("RemoveEntitlement");
+    } else {
+      roleHeader.add("AddITRoles");
+      roleHeader.add("RemoveITRoles");
+    }
+  }
+
+  result.put("templateType", "bulk");
+  result.put("roleHeader", roleHeader);
+  return result;
+  </Source>
+</Rule>

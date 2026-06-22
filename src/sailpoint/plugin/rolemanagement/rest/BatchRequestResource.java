@@ -24,6 +24,7 @@ import sailpoint.plugin.rolemanagement.service.RmeBatchRequestService;
 import sailpoint.rest.plugin.AllowAll;
 import sailpoint.rest.plugin.BasePluginResource;
 import sailpoint.tools.GeneralException;
+import sailpoint.tools.GeneralException;
 
 @AllowAll
 @Path("rolemanagement")
@@ -85,15 +86,24 @@ public class BatchRequestResource extends BasePluginResource{
 	@GET
 	@Path("/batch/downloadTemplate")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response downloadBatchTemplate(@QueryParam("roleType") @DefaultValue("it") String roleType) throws Exception {
+	public Response downloadBatchTemplate(
+			@QueryParam("roleType") @DefaultValue("it") String roleType,
+			@QueryParam("templateType") @DefaultValue("bulk") String templateType) throws Exception {
 		String normalizedRoleType = roleType != null ? roleType.trim().toLowerCase() : "it";
 		if (!"it".equals(normalizedRoleType) && !"business".equals(normalizedRoleType)) {
 			return Response.status(Response.Status.BAD_REQUEST)
 					.entity(error("roleType must be 'it' or 'business'"))
 					.build();
 		}
-		Map<String, String> payload = getBatchService().downloadBatchRequestTemplate(normalizedRoleType);
-		return Response.ok(payload).build();
+		try {
+			Map<String, String> payload = getBatchService().downloadBatchRequestTemplate(
+					normalizedRoleType, templateType);
+			return Response.ok(payload).build();
+		} catch (GeneralException e) {
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity(error(e.getMessage()))
+					.build();
+		}
 	}
 	
 	/*
