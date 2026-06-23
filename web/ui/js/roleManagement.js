@@ -44,6 +44,7 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 			}
 		}, 0);
 		$scope.isLoading = true;
+		$scope.rolesTableLoading = false;
 		$scope.config = {};
 		$scope.isDebugEnabled = false;
 		$scope.initPlugin = function () {
@@ -378,6 +379,7 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 		};
 
 		$scope.loadData = function () {
+			$scope.rolesTableLoading = true;
 			$scope.isLoading = true;
 			$scope.debugLog("Enter loadData ");
 			if ($scope.allColumns.length === 0) {
@@ -419,10 +421,12 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 						? 'No roles found with the given search'
 						: "You don't own any roles";
 				}
+				$scope.rolesTableLoading = false;
 				$scope.isLoading = false;
 			}, function error() {
 				$scope.roles = [];
 				$scope.totalCount = 0;
+				$scope.rolesTableLoading = false;
 				$scope.isLoading = false;
 			});
 		};
@@ -1006,6 +1010,7 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 		$scope.roleMemberHeaders = [];
 		$scope.roleMembersTotal = 0;
 		$scope.roleMembersLoaded = false;
+		$scope.roleMembersLoading = false;
 		$scope.roleMembersPreviewLimit = 50;
 		$scope.roleMembersDownloadInProgress = false;
 
@@ -1017,6 +1022,7 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 			$scope.roleMemberHeaders = [];
 			$scope.roleMembersTotal = 0;
 			$scope.roleMembersLoaded = false;
+			$scope.roleMembersLoading = true;
 
 			$http.get(PluginHelper.getPluginRestUrl("rolemanagement/role/" + encodeURIComponent(roleId) + "/members"), {
 				params: {
@@ -1033,10 +1039,11 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 				];
 				$scope.roleMembers = data.objects || [];
 				$scope.roleMembersTotal = data.total != null ? data.total : $scope.roleMembers.length;
-				$scope.roleMembersLoaded = true;
 			}, function (err) {
 				console.error("Failed to fetch role members", err);
 				$scope.showToast("Could not load role members.", "error");
+			}).finally(function () {
+				$scope.roleMembersLoading = false;
 				$scope.roleMembersLoaded = true;
 			});
 		};

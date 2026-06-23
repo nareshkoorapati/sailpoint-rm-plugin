@@ -112,6 +112,12 @@
 
 			<!-- Role Members Tab -->
 			<div ng-show="isTab('members')" class="custom-modal-section">
+				<div ng-if="roleMembersLoading" class="wg-members-loading">
+					<div class="page-loading-spinner" aria-hidden="true"></div>
+					<span>Loading role members…</span>
+				</div>
+
+				<div ng-if="!roleMembersLoading">
 				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
 					<span>
 						<strong>Total Members:</strong> {{ roleMembersTotal || 0 }}
@@ -144,6 +150,7 @@
 					     style="text-align: center; color: #888; padding: 16px 0;">
 						No role members found.
 					</div>
+				</div>
 				</div>
 			</div>
 
