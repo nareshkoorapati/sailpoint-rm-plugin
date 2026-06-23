@@ -6,10 +6,12 @@ package sailpoint.plugin.rolemanagement.service;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import javax.ws.rs.core.Response;
 
@@ -152,6 +154,7 @@ public class RoleService {
 			returnMap.put("displayName",b.getDisplayName());
 			returnMap.put("type",b.getType());
 			returnMap.put("owner", b.getOwner() != null ? b.getOwner().getName() : null);
+			returnMap.put("memberCount", countRoleMembers(b.getId()));
 			returnMap.put("id", b.getId());
 			returnMap.put("created", b.getCreated());
 			returnMap.put("modified", b.getModified());
@@ -410,8 +413,9 @@ public class RoleService {
 			basicDetails.put("owner", owner.getDisplayName());
 			basicDetails.put("ownerId", owner.getId());
 		}
-		
-		
+
+		basicDetails.put("memberCount", countRoleMembers(b.getId()));
+
 		return basicDetails;
 	}
 	
@@ -589,6 +593,7 @@ public class RoleService {
 	    columns.add(createColumn("type", "Type", true,false));
 	    columns.add(createColumn("description", "Description", true,false));
 	    columns.add(createColumn("owner", "Role Owner", true,false));
+	    columns.add(createColumn("memberCount", "Member Count", true,false));
 	    columns.add(createColumn("created", "Created", true, true)); 
 		columns.add(createColumn("modified", "Modified", true, true)); 
 	    
@@ -778,6 +783,173 @@ public class RoleService {
 			log(logPrefix + "Error in isRoleAdmin " + e.getMessage());
 			return false;
 		}
+	}
+
+	/**
+	 * Member count = identities with the role assigned plus identities with the role detected
+	 * (computed) but not directly assigned. IT roles may be both assignable and detected.
+	 */
+	public int countRoleMembers(String roleId) {
+		if (Util.isNullOrEmpty(roleId)) {
+			return 0;
+		}
+		try {
+			return countAssignedRoleMembers(roleId) + countDetectedRoleMembers(roleId);
+		} catch (GeneralException e) {
+			log(logPrefix + "Error counting role members for " + roleId + ": " + e.getMessage());
+			return 0;
+		}
+	}
+
+	public Map<String, Object> getRoleMembers(String roleId, int start, int limit) throws GeneralException {
+		Map<String, Object> result = new HashMap<>();
+		result.put("headers", roleMemberHeaders());
+		result.put("start", start);
+		result.put("limit", limit);
+
+		if (Util.isNullOrEmpty(roleId)) {
+			result.put("total", 0);
+			result.put("objects", new ArrayList<Map<String, Object>>());
+			return result;
+		}
+
+		int total = countRoleMembers(roleId);
+		result.put("total", total);
+
+		List<Map<String, Object>> members = collectRoleMemberRows(roleId, Math.max(start, 0), Math.max(limit, 0));
+		result.put("objects", members);
+		return result;
+	}
+
+	public String downloadRoleMembersCsv(String roleId) throws GeneralException {
+		Bundle role = _context.getObjectById(Bundle.class, roleId);
+		String roleName = role != null ? role.getName() : roleId;
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("Identity Name,First Name,Last Name,Employee ID\n");
+
+		for (Map<String, Object> row : collectRoleMemberRows(roleId, 0, Integer.MAX_VALUE)) {
+			sb.append(escapeCsvField(stringValue(row.get("name")))).append(',');
+			sb.append(escapeCsvField(stringValue(row.get("firstName")))).append(',');
+			sb.append(escapeCsvField(stringValue(row.get("lastName")))).append(',');
+			sb.append(escapeCsvField(stringValue(row.get("employeeId")))).append('\n');
+		}
+
+		log(logPrefix + "downloadRoleMembersCsv for role " + roleName);
+		return sb.toString();
+	}
+
+	/**
+	 * IIQ search on link collections (assignedRoles/bundles) can return the same identity
+	 * once per matching link. Clone results + id de-duplication keeps list aligned with count.
+	 */
+	private List<Map<String, Object>> collectRoleMemberRows(String roleId, int start, int limit)
+			throws GeneralException {
+		List<Map<String, Object>> members = new ArrayList<>();
+		if (Util.isNullOrEmpty(roleId) || limit <= 0) {
+			return members;
+		}
+
+		QueryOptions qo = new QueryOptions();
+		qo.addFilter(buildRoleMemberFilter(roleId));
+		qo.addFilter(Filter.eq("workgroup", false));
+		qo.setCloneResults(true);
+		qo.setOrderBy("name");
+		qo.setOrderAscending(true);
+
+		Set<String> seenIds = new HashSet<>();
+		int skipped = 0;
+		Iterator<Identity> itr = _context.search(Identity.class, qo);
+		if (itr != null) {
+			try {
+				while (itr.hasNext() && members.size() < limit) {
+					Identity identity = itr.next();
+					if (identity == null || Util.isNullOrEmpty(identity.getId())) {
+						continue;
+					}
+					if (!seenIds.add(identity.getId())) {
+						continue;
+					}
+					if (skipped < start) {
+						skipped++;
+						continue;
+					}
+					members.add(roleMemberRow(identity));
+				}
+			} finally {
+				Util.flushIterator(itr);
+			}
+		}
+		return members;
+	}
+
+	private int countAssignedRoleMembers(String roleId) throws GeneralException {
+		QueryOptions qo = new QueryOptions();
+		qo.addFilter(Filter.contains("assignedRoles.id", roleId));
+		qo.addFilter(Filter.eq("workgroup", false));
+		qo.setCloneResults(true);
+		return (int) _context.countObjects(Identity.class, qo);
+	}
+
+	private int countDetectedRoleMembers(String roleId) throws GeneralException {
+		QueryOptions qo = new QueryOptions();
+		qo.addFilter(Filter.contains("bundles.id", roleId));
+		qo.addFilter(Filter.not(Filter.contains("assignedRoles.id", roleId)));
+		qo.addFilter(Filter.eq("workgroup", false));
+		qo.setCloneResults(true);
+		return (int) _context.countObjects(Identity.class, qo);
+	}
+
+	private Filter buildRoleMemberFilter(String roleId) {
+		Filter detectedOnly = Filter.and(
+				Filter.contains("bundles.id", roleId),
+				Filter.not(Filter.contains("assignedRoles.id", roleId)));
+		return Filter.or(Filter.contains("assignedRoles.id", roleId), detectedOnly);
+	}
+
+	private static List<Map<String, Object>> roleMemberHeaders() {
+		List<Map<String, Object>> headers = new ArrayList<>();
+		headers.add(roleMemberHeader("Identity Name", "name"));
+		headers.add(roleMemberHeader("First Name", "firstName"));
+		headers.add(roleMemberHeader("Last Name", "lastName"));
+		headers.add(roleMemberHeader("Employee ID", "employeeId"));
+		return headers;
+	}
+
+	private static Map<String, Object> roleMemberHeader(String label, String key) {
+		Map<String, Object> header = new HashMap<>();
+		header.put("label", label);
+		header.put("key", key);
+		return header;
+	}
+
+	private static Map<String, Object> roleMemberRow(Identity identity) {
+		Map<String, Object> member = new HashMap<>();
+		member.put("id", identity.getId());
+		member.put("name", identity.getName());
+		member.put("firstName", identity.getFirstname() != null ? identity.getFirstname() : "");
+		member.put("lastName", identity.getLastname() != null ? identity.getLastname() : "");
+		Object employeeId = identity.getAttribute("employeeid");
+		if (employeeId == null) {
+			employeeId = identity.getAttribute("employeeId");
+		}
+		member.put("employeeId", employeeId != null ? employeeId.toString() : "");
+		return member;
+	}
+
+	private static String stringValue(Object value) {
+		return value == null ? "" : String.valueOf(value);
+	}
+
+	private static String escapeCsvField(String value) {
+		if (value == null) {
+			return "";
+		}
+		if (value.indexOf(',') >= 0 || value.indexOf('"') >= 0
+				|| value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+			return "\"" + value.replace("\"", "\"\"") + "\"";
+		}
+		return value;
 	}
 
 }

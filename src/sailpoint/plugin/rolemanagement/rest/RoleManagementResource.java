@@ -80,6 +80,28 @@ public class RoleManagementResource extends BasePluginResource {
 
 	@GET
 	@Deferred
+	@Path("/role/{roleId}/members")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getRoleMembers(@PathParam("roleId") String roleId,
+			@QueryParam("start") @DefaultValue("0") int start,
+			@QueryParam("limit") @DefaultValue("50") int limit) throws GeneralException {
+		Map<String, Object> members = getRoleService().getRoleMembers(roleId, start, limit);
+		return Response.ok(members).build();
+	}
+
+	@GET
+	@Deferred
+	@Path("/role/{roleId}/members/download")
+	@Produces("application/csv")
+	public Response downloadRoleMembers(@PathParam("roleId") String roleId) throws GeneralException {
+		String csvContent = getRoleService().downloadRoleMembersCsv(roleId);
+		return Response.ok(csvContent)
+				.header("Content-Disposition", "attachment; filename=\"roleMembers.csv\"")
+				.build();
+	}
+
+	@GET
+	@Deferred
 	@Path("/role/{roleName}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response getRoleDetails(@PathParam("roleName") String roleName) throws GeneralException, JSONException {

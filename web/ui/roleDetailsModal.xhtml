@@ -21,6 +21,9 @@
 				ng-click="switchToWorkgroupTab()"
 				ng-class="{'active-tab': isTab('workgroup')}">Role Owners</div>
 
+			<div ng-click="switchToRoleMembersTab()"
+				ng-class="{'active-tab': isTab('members')}">Role Members</div>
+
 			<div ng-click="setTab('extended')"
 				ng-class="{'active-tab': isTab('extended')}">Extended
 				Attributes</div>
@@ -107,6 +110,42 @@
 				</div>
 			</div>
 
+			<!-- Role Members Tab -->
+			<div ng-show="isTab('members')" class="custom-modal-section">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+					<span>
+						<strong>Total Members:</strong> {{ roleMembersTotal || 0 }}
+						<span ng-if="roleMembersTotal > roleMembersPreviewLimit" style="color: #666; margin-left: 8px;">
+							(Showing first {{ roleMembersPreviewLimit }})
+						</span>
+					</span>
+					<button type="button"
+					        class="mat-button-outlined"
+					        ng-click="downloadRoleMembers()"
+					        ng-disabled="roleMembersDownloadInProgress || !roleMembersTotal">
+						<i class="fas fa-download"></i> Download Members
+					</button>
+				</div>
+
+				<div class="modern-table-wrapper">
+					<table class="modern-table" ng-if="roleMembers.length > 0">
+						<thead>
+							<tr>
+								<th ng-repeat="col in roleMemberHeaders">{{ col.label }}</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr ng-repeat="member in roleMembers track by member.id">
+								<td ng-repeat="col in roleMemberHeaders">{{ member[col.key] }}</td>
+							</tr>
+						</tbody>
+					</table>
+					<div ng-if="roleMembersLoaded &amp;&amp; roleMembers.length === 0"
+					     style="text-align: center; color: #888; padding: 16px 0;">
+						No role members found.
+					</div>
+				</div>
+			</div>
 
 			<!-- Extended Attributes Tab -->
 			<div ng-show="isTab('extended')" class="custom-modal-section">

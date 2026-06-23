@@ -217,6 +217,10 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 				});
 			}
 
+			if (key === 'memberCount' && (value === null || value === undefined)) {
+				return 0;
+			}
+
 			//$scope.debugLog("Exit getRoleValue value  ",value);
 			return value;
 			
@@ -996,6 +1000,78 @@ RoleApp.config(['$httpProvider', function ($httpProvider) {
 			$scope.setTab('workgroup');		
 			$scope.loadGroupMembers(null, $scope.selectedRole.ownerId);
 			
+		};
+
+		$scope.roleMembers = [];
+		$scope.roleMemberHeaders = [];
+		$scope.roleMembersTotal = 0;
+		$scope.roleMembersLoaded = false;
+		$scope.roleMembersPreviewLimit = 50;
+		$scope.roleMembersDownloadInProgress = false;
+
+		$scope.loadRoleMembers = function (roleId) {
+			if (!roleId) {
+				return;
+			}
+			$scope.roleMembers = [];
+			$scope.roleMemberHeaders = [];
+			$scope.roleMembersTotal = 0;
+			$scope.roleMembersLoaded = false;
+
+			$http.get(PluginHelper.getPluginRestUrl("rolemanagement/role/" + encodeURIComponent(roleId) + "/members"), {
+				params: {
+					start: 0,
+					limit: $scope.roleMembersPreviewLimit
+				}
+			}).then(function (res) {
+				var data = res.data || {};
+				$scope.roleMemberHeaders = data.headers || [
+					{ label: "Identity Name", key: "name" },
+					{ label: "First Name", key: "firstName" },
+					{ label: "Last Name", key: "lastName" },
+					{ label: "Employee ID", key: "employeeId" }
+				];
+				$scope.roleMembers = data.objects || [];
+				$scope.roleMembersTotal = data.total != null ? data.total : $scope.roleMembers.length;
+				$scope.roleMembersLoaded = true;
+			}, function (err) {
+				console.error("Failed to fetch role members", err);
+				$scope.showToast("Could not load role members.", "error");
+				$scope.roleMembersLoaded = true;
+			});
+		};
+
+		$scope.switchToRoleMembersTab = function () {
+			$scope.setTab('members');
+			$scope.loadRoleMembers($scope.selectedRole.id);
+		};
+
+		$scope.downloadRoleMembers = function () {
+			var roleId = $scope.selectedRole && $scope.selectedRole.id;
+			if (!roleId) {
+				return;
+			}
+			$scope.roleMembersDownloadInProgress = true;
+			$http.get(PluginHelper.getPluginRestUrl("rolemanagement/role/" + encodeURIComponent(roleId) + "/members/download"), {
+				responseType: "text"
+			}).then(function (response) {
+				var roleName = ($scope.selectedRole && $scope.selectedRole.name) ? $scope.selectedRole.name : "role";
+				var blob = new Blob([response.data || ""], { type: "text/csv;charset=utf-8;" });
+				var url = window.URL.createObjectURL(blob);
+				var link = document.createElement("a");
+				link.href = url;
+				link.download = roleName + "-members.csv";
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+				window.URL.revokeObjectURL(url);
+				$scope.showToast("Download started", "success");
+			}).catch(function (error) {
+				console.error("Failed to download role members", error);
+				$scope.showToast("Download failed", "error");
+			}).finally(function () {
+				$scope.roleMembersDownloadInProgress = false;
+			});
 		};
 		
 		// Holds all keys to filter with, extracted from headers
