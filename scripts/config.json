@@ -1,0 +1,37 @@
+{
+
+  "tenant_url": "https://partner17008.api.identitynow-demo.com/",
+
+  "client_id": "ff3487fd4fef45a9becc76c5f1e3123d",
+
+  "client_secret": "14abccfa6d4f1bf5c5ab2d4a316f85764fa02ebadeb4cc19d70d8d059d8522c3",
+
+  "output_path": "./reports",
+
+  "log_file": "log.txt",
+
+  "api_version": "v2025",
+
+  "filter": {
+
+    "campaign_name": ["Bading Certification","All Active Directory Search Based Certification","Delimted File Conne"],
+
+    "campaign_type": "",
+
+    "campaign_status": "",
+
+    "campaign_api_filter": ""
+
+  },
+
+  "account_activity": {
+
+    "enabled": true,
+
+    "max_search_results_per_group": 25
+
+  }
+
+}
+
+

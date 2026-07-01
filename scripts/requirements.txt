@@ -1,0 +1,2 @@
+requests>=2.28.0
+sailpoint>=2.0.0
