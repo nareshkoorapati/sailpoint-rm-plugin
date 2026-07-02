@@ -10,6 +10,8 @@
 
   "log_file": "log.txt",
 
+  "log_file_max_mb": 0,
+
   "api_version": "v2025",
 
   "filter": {

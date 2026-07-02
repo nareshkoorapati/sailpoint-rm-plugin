@@ -96,6 +96,7 @@ def load_config(path: Path) -> dict[str, Any]:
 
     config.setdefault("filter", {})
     config.setdefault("log_file", "")
+    config.setdefault("log_file_max_mb", 0)
     config.setdefault(
         "account_activity",
         {
@@ -632,6 +633,20 @@ def build_certification_activity_search_query(
     return " AND ".join(clauses)
 
 
+def _coerce_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return "|".join(_coerce_text(item) for item in value if item is not None)
+    if isinstance(value, dict):
+        return json.dumps(value, default=str)
+    return str(value)
+
+
+def _text_lower(value: Any) -> str:
+    return _coerce_text(value).lower()
+
+
 def _iter_attribute_requests(account_request: dict) -> list[dict]:
     if account_request.get("attributeRequests"):
         return list(account_request["attributeRequests"])
@@ -660,12 +675,18 @@ def pick_activity_for_review_item(
     if len(activities) == 1:
         return activities[0]
 
-    access_lower = (access_name or "").lower()
-    value_lower = (entitlement_value or "").lower()
+    access_lower = _text_lower(access_name)
+    value_lower = _text_lower(entitlement_value)
     for activity in activities:
         for account_request in activity.get("accountRequests") or []:
+            if not isinstance(account_request, dict):
+                continue
             for attr in _iter_attribute_requests(account_request):
-                attr_val = (attr.get("value") or "").lower()
+                if isinstance(attr, dict):
+                    raw_value = attr.get("value")
+                else:
+                    raw_value = _field(attr, "value")
+                attr_val = _text_lower(raw_value)
                 if value_lower and (value_lower in attr_val or attr_val in value_lower):
                     return activity
                 if access_lower and access_lower in attr_val:
@@ -683,11 +704,17 @@ def remediation_from_account_activity(activity: dict) -> dict[str, str]:
     ticket_ids: list[str] = []
     prov_target = ""
     for account_request in activity.get("accountRequests") or []:
+        if not isinstance(account_request, dict):
+            continue
         ticket_id, _ticket_status = extract_snow_ticket(account_request)
         if ticket_id and ticket_id not in ticket_ids:
             ticket_ids.append(ticket_id)
         if not prov_target:
-            prov_target = (account_request.get("provisioningTarget") or {}).get("name", "")
+            target = account_request.get("provisioningTarget") or {}
+            if isinstance(target, dict):
+                prov_target = str(target.get("name") or "")
+            else:
+                prov_target = _coerce_text(_field(target, "name"))
 
     return {
         "RemediationStatus": str(activity.get("status") or ""),
