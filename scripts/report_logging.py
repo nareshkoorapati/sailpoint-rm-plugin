@@ -12,6 +12,7 @@ from typing import Any
 DEFAULT_LOG_FILE = "isc_certification_report.log"
 MAX_LOG_META_CHARS = 4000
 STEP_RUNNING_HEARTBEAT_SECONDS = 120
+BYTES_PER_MB = 1024 * 1024
 
 _active_logger: "ReportLogger | None" = None
 
@@ -55,6 +56,33 @@ def get_active_logger() -> "ReportLogger | None":
     return _active_logger
 
 
+def parse_log_max_bytes(config: dict[str, Any]) -> int | None:
+    """Return max log size in bytes from config.log_file_max_mb, or None if disabled."""
+    raw = config.get("log_file_max_mb")
+    if raw is None or raw == "":
+        return None
+    try:
+        megabytes = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if megabytes <= 0:
+        return None
+    return int(megabytes * BYTES_PER_MB)
+
+
+def _timestamped_log_path(path: Path) -> Path:
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return path.with_name(f"{path.stem}_{ts}{path.suffix}")
+
+
+def _next_archive_path(base_path: Path) -> Path:
+    candidate = _timestamped_log_path(base_path)
+    while candidate.exists():
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        candidate = base_path.with_name(f"{base_path.stem}_{ts}{base_path.suffix}")
+    return candidate
+
+
 def _truncate_text(text: str, limit: int = MAX_LOG_META_CHARS) -> str:
     if len(text) <= limit:
         return text
@@ -70,26 +98,70 @@ def _format_body(body: Any) -> str:
 
 
 class ReportLogger:
-    def __init__(self, path: Path, script_name: str = "") -> None:
-        self.path = path.resolve()
+    def __init__(
+        self,
+        path: Path,
+        script_name: str = "",
+        *,
+        max_bytes: int | None = None,
+    ) -> None:
+        self._base_path = path.resolve()
+        self.path = self._base_path
+        self._max_bytes = max_bytes
+        self._lock = threading.Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._rotate_if_needed(about_to_write=0)
         if not self.path.exists():
             self.path.touch()
         self.log(f"=== Log started: {script_name or 'ISC certification report'} ===")
         self.log(f"Log file: {self.path}")
+        if self._max_bytes is not None:
+            limit_mb = self._max_bytes / BYTES_PER_MB
+            self.log(f"Log size limit: {limit_mb:g} MB")
+
+    def _current_size(self) -> int:
+        if not self.path.exists():
+            return 0
+        return self.path.stat().st_size
+
+    def _rotate_if_needed(self, about_to_write: int = 0) -> None:
+        if self._max_bytes is None:
+            return
+        current = self._current_size()
+        if current == 0:
+            return
+        if current + about_to_write < self._max_bytes:
+            return
+
+        archived = _next_archive_path(self._base_path)
+        self.path.rename(archived)
+        self.path = self._base_path
+        self.path.touch()
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        notice = (
+            f"[{ts}] === Log rotated: archived {archived.name} "
+            f"(limit {self._max_bytes / BYTES_PER_MB:g} MB reached) ===\n"
+        )
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(notice)
+
+    def _append_text(self, text: str) -> None:
+        payload = text if text.endswith("\n") else text + "\n"
+        encoded_len = len(payload.encode("utf-8"))
+        with self._lock:
+            self._rotate_if_needed(encoded_len)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(payload)
 
     def log(self, message: str) -> None:
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        line = f"[{ts}] {message}"
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(line + "\n")
+        self._append_text(f"[{ts}] {message}")
 
     def _write_multiline(self, prefix: str, text: str) -> None:
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(f"[{ts}] {prefix}\n")
-            for line in text.splitlines():
-                handle.write(f"{line}\n")
+        lines = [f"[{ts}] {prefix}"]
+        lines.extend(text.splitlines())
+        self._append_text("\n".join(lines))
 
     def log_http(
         self,
@@ -130,7 +202,11 @@ def create_report_logger(
     script_name: str,
     base_dir: Path | None = None,
 ) -> ReportLogger:
-    logger = ReportLogger(resolve_log_path(config, base_dir), script_name=script_name)
+    logger = ReportLogger(
+        resolve_log_path(config, base_dir),
+        script_name=script_name,
+        max_bytes=parse_log_max_bytes(config),
+    )
     set_active_logger(logger)
     return logger
 
