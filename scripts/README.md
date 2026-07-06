@@ -10,6 +10,7 @@ Python tool that exports SailPoint Identity Security Cloud (ISC) certification d
 |------|-------------|
 | `certification_report_{YYYYMMDD_HHMMSS}.csv` | One row per access-review-item |
 | `Certification_Summary_{YYYYMMDD_HHMMSS}.csv` | One row per certification (decision-summary counts) |
+| `Remediation_Report_{YYYYMMDD_HHMMSS}.csv` | One row per **revoked** access-review-item with remediation status |
 
 API reference: [SailPoint ISC API specifications](https://developer.sailpoint.com/docs/api)
 
@@ -64,6 +65,7 @@ Copy and edit `config.json`:
 | `client_id` / `client_secret` | OAuth client credentials |
 | `output_path` | Directory for CSV output |
 | `log_file` | Log file path; empty → `isc_certification_report.log` in the working directory |
+| `log_file_max_mb` | Max log size in MB; when exceeded the current log is archived as `{name}_{timestamp}.ext` and a new log file is started (`0` = no limit) |
 | `filter.campaign_name` | String or list; server filter `(name eq "A" or name eq "B")` |
 | `filter.campaign_status` | Server filter `status eq "..."` |
 | `filter.campaign_id` | Server filter `id eq "..."` (optional) |
@@ -225,6 +227,28 @@ Grouped as **Total → Made → Approved → Revoked** for each access type.
 | EntitlementsRevoked | AccessProfilesRevoked | RolesRevoked | AccountsRevoked |
 
 All count fields map directly to the same field names in the decision-summary API response.
+
+---
+
+## Report 3: `Remediation_Report_{timestamp}.csv`
+
+One row per **revoked** access-review-item (`Decision` = `REVOKE`). Remediation and ServiceNow data use the same account-activity search as Report 1.
+
+### Columns
+
+Campaign and certification context (`CampaignName`, `CertificationName`, `CertifierName`, etc.), identity and access fields (`IdentityName`, `AccessName`, `SourceName`, `EntitlementAttribute`, `EntitlementValue`), review fields (`ReviewItemCompleted`, `Decision`, `Comments`, `Recommendation`), and remediation status:
+
+| Column | Description |
+|--------|-------------|
+| RemediationStatus | Account activity `status`, or `Remediation Not Started` if no match |
+| RemediationWorkItemState | Account activity `stage` |
+| RemediationCreated | Account activity `created` |
+| RemediationCompleted | *(not mapped)* |
+| RemediationErrors | Account activity `errors[]` |
+| SNOWTicketId | `accountRequests[].result.ticketId` |
+| ProvisioningTarget | `accountRequests[].provisioningTarget.name` |
+
+If there are no revoked items, the file is still created with headers only.
 
 ---
 

@@ -127,8 +127,9 @@
 					</span>
 					<button type="button"
 					        class="mat-button-outlined"
+					        ng-if="roleMembersTotal > 0"
 					        ng-click="downloadRoleMembers()"
-					        ng-disabled="roleMembersDownloadInProgress || !roleMembersTotal">
+					        ng-disabled="roleMembersDownloadInProgress">
 						<i class="fas fa-download"></i> Download Members
 					</button>
 				</div>

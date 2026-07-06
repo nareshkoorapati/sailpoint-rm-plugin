@@ -48,7 +48,6 @@ public final class BulkUploadTemplateCsvBuilder {
 		}
 
 		List<String> attributeNames = new ArrayList<>();
-		List<String> attributeTypes = new ArrayList<>();
 		List<List<String>> allowedValuesByAttribute = new ArrayList<>();
 
 		for (Map<String, Object> row : attributeRows) {
@@ -56,7 +55,6 @@ public final class BulkUploadTemplateCsvBuilder {
 				continue;
 			}
 			attributeNames.add(stringValue(row.get("name")));
-			attributeTypes.add(stringValue(row.get("type")));
 			allowedValuesByAttribute.add(toAllowedValueList(row.get("allowedValues")));
 		}
 
@@ -78,11 +76,6 @@ public final class BulkUploadTemplateCsvBuilder {
 		nameRow.add("");
 		nameRow.addAll(attributeNames);
 		appendCsvRow(sb, nameRow);
-
-		List<String> typeRow = new ArrayList<>();
-		typeRow.add("Type");
-		typeRow.addAll(attributeTypes);
-		appendCsvRow(sb, typeRow);
 
 		for (int valueIndex = 0; valueIndex < maxAllowedValues; valueIndex++) {
 			List<String> allowedRow = new ArrayList<>();

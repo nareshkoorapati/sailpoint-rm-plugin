@@ -245,15 +245,26 @@ def _escape_search(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def write_csv(rows: list[dict], path: Path, reporter: StepReporter) -> None:
-    if not rows:
-        reporter.detail(f"(no rows to write for {path.name})")
+def write_csv(
+    rows: list[dict],
+    path: Path,
+    reporter: StepReporter,
+    *,
+    fieldnames: list[str] | None = None,
+) -> None:
+    columns = fieldnames or (list(rows[0].keys()) if rows else None)
+    if not columns:
+        reporter.detail(f"(no columns to write for {path.name})")
         return
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+        writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(rows)
-    reporter.detail(f"Written: {path} ({len(rows)} rows)")
+        if rows:
+            writer.writerows(rows)
+    if rows:
+        reporter.detail(f"Written: {path} ({len(rows)} rows)")
+    else:
+        reporter.detail(f"Written: {path} (header only, 0 rows)")
 
 
 def _escape_filter_value(value: str) -> str:
@@ -945,6 +956,48 @@ def build_unified_rows(
 
 
 # ---------------------------------------------------------------------------
+# Remediation report (REVOKE items only)
+# ---------------------------------------------------------------------------
+
+REMEDIATION_REPORT_COLUMNS: list[str] = [
+    "CampaignName",
+    "CampaignType",
+    "CampaignStatus",
+    "CertificationName",
+    "CertificationDue",
+    "CertificationCompleted",
+    "CertifierName",
+    "CertifierEmail",
+    "IdentityName",
+    "AccessName",
+    "AccessType",
+    "SourceName",
+    "EntitlementAttribute",
+    "EntitlementValue",
+    "ReviewItemCompleted",
+    "Decision",
+    "Comments",
+    "Recommendation",
+    "RemediationStatus",
+    "RemediationWorkItemState",
+    "RemediationCreated",
+    "RemediationCompleted",
+    "RemediationErrors",
+    "SNOWTicketId",
+    "ProvisioningTarget",
+]
+
+
+def build_remediation_rows(unified_rows: list[dict]) -> list[dict]:
+    """Subset of unified rows: REVOKE decisions with remediation / SNOW status."""
+    return [
+        {column: row.get(column, "") for column in REMEDIATION_REPORT_COLUMNS}
+        for row in unified_rows
+        if (row.get("Decision") or "").upper() == "REVOKE"
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Certification decision-summary report
 # ---------------------------------------------------------------------------
 
@@ -1121,6 +1174,8 @@ def main() -> int:
                     reporter,
                 )
                 reporter.detail(f"Unified rows: {len(rows)}")
+                remediation_rows = build_remediation_rows(rows)
+                reporter.detail(f"Remediation rows (REVOKE only): {len(remediation_rows)}")
                 reporter.end(StepStatus.OK, "report data built")
             except Exception as exc:
                 reporter.end(StepStatus.ERROR, str(exc))
@@ -1150,6 +1205,12 @@ def main() -> int:
                 out_dir / f"Certification_Summary_{ts}.csv",
                 reporter,
             )
+            write_csv(
+                remediation_rows,
+                out_dir / f"Remediation_Report_{ts}.csv",
+                reporter,
+                fieldnames=REMEDIATION_REPORT_COLUMNS,
+            )
             reporter.end(StepStatus.OK, f"written to {out_dir}")
 
     except Exception as exc:
@@ -1162,6 +1223,7 @@ def main() -> int:
     print("=== Report Complete ===")
     print(f"Output: certification_report_{ts}.csv")
     print(f"Output: Certification_Summary_{ts}.csv")
+    print(f"Output: Remediation_Report_{ts}.csv")
     active_logger = get_active_logger()
     if active_logger:
         active_logger.log("=== Report complete ===")

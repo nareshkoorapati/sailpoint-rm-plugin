@@ -1,0 +1,296 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="CNC_RME_JDBC_Table_To_Csv_Export">
+  <Description>
+    Streams a large database table (100k+ rows) to a CSV file on the Linux application server using a JDBC
+    Application connection. Uses forward-only cursors, JDBC fetch sizing, and buffered I/O to limit memory use.
+    Sets file permissions to 777 after a successful export.
+  </Description>
+  <Signature returnType="java.util.Map">
+    <Inputs>
+      <Argument name="context">
+        <Description>SailPoint context.</Description>
+      </Argument>
+      <Argument name="jdbcApplicationName">
+        <Description>Name of the IIQ JDBC Application that holds connection details (url, driver, user, password).</Description>
+      </Argument>
+      <Argument name="tableName">
+        <Description>Database table to export. Alphanumeric and underscore only. Optional schema prefix allowed (e.g. schema.my_table).</Description>
+      </Argument>
+      <Argument name="outputFilePath">
+        <Description>Absolute path on the Linux server for the output CSV file (e.g. /tmp/exports/my_table.csv).</Description>
+      </Argument>
+      <Argument name="selectSql">
+        <Description>Optional. Full SELECT statement. When provided, tableName is ignored.</Description>
+      </Argument>
+      <Argument name="whereClause">
+        <Description>Optional WHERE clause without the WHERE keyword (used only when selectSql is empty).</Description>
+      </Argument>
+      <Argument name="fetchSize">
+        <Description>Optional JDBC fetch size (rows per round-trip). Default 5000. Use 1000-10000 for large exports.</Description>
+      </Argument>
+      <Argument name="flushEveryRows">
+        <Description>Optional. Flush buffered file output every N data rows. Default 5000.</Description>
+      </Argument>
+      <Argument name="logProgressEveryRows">
+        <Description>Optional. Log progress every N data rows. Default 10000. Set 0 to disable.</Description>
+      </Argument>
+      <Argument name="queryTimeoutSeconds">
+        <Description>Optional JDBC query timeout in seconds. Default 7200 (2 hours). Set 0 for no timeout.</Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+  import java.io.BufferedWriter;
+  import java.io.File;
+  import java.io.FileOutputStream;
+  import java.io.OutputStreamWriter;
+  import java.nio.charset.StandardCharsets;
+  import java.sql.Connection;
+  import java.sql.ResultSet;
+  import java.sql.ResultSetMetaData;
+  import java.sql.Statement;
+  import java.util.ArrayList;
+  import java.util.HashMap;
+  import java.util.List;
+  import java.util.Map;
+
+  import sailpoint.connector.Connector;
+  import sailpoint.connector.ConnectorFactory;
+  import sailpoint.object.Application;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+
+  int DEFAULT_FETCH_SIZE = 5000;
+  int DEFAULT_FLUSH_EVERY = 5000;
+  int DEFAULT_LOG_EVERY = 10000;
+  int DEFAULT_QUERY_TIMEOUT = 7200;
+  int WRITER_BUFFER_SIZE = 131072;
+
+  String escapeCsvField(String value) {
+    if (value == null) {
+      return "";
+    }
+    if (value.indexOf(',') >= 0 || value.indexOf('"') >= 0
+        || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+      return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+    return value;
+  }
+
+  void appendCsvRow(StringBuilder sb, ResultSet rs, int columnCount) throws Exception {
+    sb.setLength(0);
+    for (int col = 1; col &lt;= columnCount; col++) {
+      if (col &gt; 1) {
+        sb.append(',');
+      }
+      String value = rs.getString(col);
+      sb.append(escapeCsvField(value));
+    }
+    sb.append(System.lineSeparator());
+  }
+
+  void appendCsvHeader(StringBuilder sb, String[] headers) {
+    sb.setLength(0);
+    for (int i = 0; i &lt; headers.length; i++) {
+      if (i &gt; 0) {
+        sb.append(',');
+      }
+      sb.append(escapeCsvField(headers[i]));
+    }
+    sb.append(System.lineSeparator());
+  }
+
+  int parsePositiveInt(Object value, int defaultValue) {
+    if (value == null) {
+      return defaultValue;
+    }
+    try {
+      int parsed = Integer.parseInt(value.toString().trim());
+      return parsed &gt; 0 ? parsed : defaultValue;
+    } catch (Exception e) {
+      return defaultValue;
+    }
+  }
+
+  int parseNonNegativeInt(Object value, int defaultValue) {
+    if (value == null) {
+      return defaultValue;
+    }
+    try {
+      int parsed = Integer.parseInt(value.toString().trim());
+      return parsed &gt;= 0 ? parsed : defaultValue;
+    } catch (Exception e) {
+      return defaultValue;
+    }
+  }
+
+  String appName = jdbcApplicationName != null ? jdbcApplicationName.toString().trim() : "";
+  String table = tableName != null ? tableName.toString().trim() : "";
+  String outPath = outputFilePath != null ? outputFilePath.toString().trim() : "";
+  String customSql = selectSql != null ? selectSql.toString().trim() : "";
+  String where = whereClause != null ? whereClause.toString().trim() : "";
+
+  int jdbcFetchSize = parsePositiveInt(fetchSize, DEFAULT_FETCH_SIZE);
+  int rowsPerFlush = parsePositiveInt(flushEveryRows, DEFAULT_FLUSH_EVERY);
+  int rowsPerLog = parseNonNegativeInt(logProgressEveryRows, DEFAULT_LOG_EVERY);
+  int sqlTimeoutSec = parseNonNegativeInt(queryTimeoutSeconds, DEFAULT_QUERY_TIMEOUT);
+
+  if (Util.isNullOrEmpty(appName)) {
+    throw new GeneralException("jdbcApplicationName is required");
+  }
+  if (Util.isNullOrEmpty(outPath)) {
+    throw new GeneralException("outputFilePath is required");
+  }
+  if (Util.isNullOrEmpty(customSql) &amp;&amp; Util.isNullOrEmpty(table)) {
+    throw new GeneralException("tableName or selectSql is required");
+  }
+
+  if (Util.isNullOrEmpty(customSql)) {
+    if (!table.matches("^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)?$")) {
+      throw new GeneralException("Invalid tableName. Use schema.table or table_name with alphanumeric/underscore only.");
+    }
+  }
+
+  if (Util.isNullOrEmpty(customSql)) {
+    customSql = "SELECT * FROM " + table;
+    if (!Util.isNullOrEmpty(where)) {
+      customSql = customSql + " WHERE " + where;
+    }
+  } else {
+    String sqlUpper = customSql.toUpperCase();
+    if (!sqlUpper.startsWith("SELECT")) {
+      throw new GeneralException("selectSql must be a SELECT statement");
+    }
+  }
+
+  Application jdbcApp = context.getObjectByName(Application.class, appName);
+  if (jdbcApp == null) {
+    throw new GeneralException("JDBC Application not found: " + appName);
+  }
+
+  Connector connector = ConnectorFactory.getConnector(jdbcApp, null);
+  if (connector == null) {
+    throw new GeneralException("Could not create connector for application: " + appName);
+  }
+
+  File outFile = new File(outPath);
+  File parentDir = outFile.getParentFile();
+  if (parentDir != null &amp;&amp; !parentDir.exists()) {
+    if (!parentDir.mkdirs()) {
+      throw new GeneralException("Could not create output directory: " + parentDir.getAbsolutePath());
+    }
+  }
+
+  long startMs = System.currentTimeMillis();
+  Connection conn = null;
+  Statement stmt = null;
+  ResultSet rs = null;
+  BufferedWriter writer = null;
+  int rowCount = 0;
+  boolean exportComplete = false;
+
+  try {
+    conn = connector.getConnection();
+    if (conn == null) {
+      throw new GeneralException("JDBC connection is null for application: " + appName);
+    }
+
+    try {
+      conn.setReadOnly(true);
+      conn.setAutoCommit(false);
+    } catch (Exception ignore) {
+    }
+
+    stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    stmt.setFetchSize(jdbcFetchSize);
+    if (sqlTimeoutSec &gt; 0) {
+      stmt.setQueryTimeout(sqlTimeoutSec);
+    }
+
+    rs = stmt.executeQuery(customSql);
+
+    ResultSetMetaData meta = rs.getMetaData();
+    int columnCount = meta.getColumnCount();
+    String[] headers = new String[columnCount];
+    for (int col = 1; col &lt;= columnCount; col++) {
+      String label = meta.getColumnLabel(col);
+      headers[col - 1] = label != null ? label : ("COL_" + col);
+    }
+
+    writer = new BufferedWriter(
+        new OutputStreamWriter(new FileOutputStream(outFile), StandardCharsets.UTF_8),
+        WRITER_BUFFER_SIZE);
+
+    StringBuilder rowBuffer = new StringBuilder(512);
+    appendCsvHeader(rowBuffer, headers);
+    writer.write(rowBuffer.toString());
+
+    while (rs.next()) {
+      appendCsvRow(rowBuffer, rs, columnCount);
+      writer.write(rowBuffer.toString());
+      rowCount++;
+
+      if (rowsPerFlush &gt; 0 &amp;&amp; rowCount % rowsPerFlush == 0) {
+        writer.flush();
+      }
+
+      if (rowsPerLog &gt; 0 &amp;&amp; rowCount % rowsPerLog == 0) {
+        long elapsed = System.currentTimeMillis() - startMs;
+        System.out.println("CNC_RME_JDBC_Table_To_Csv_Export: exported " + rowCount
+            + " rows in " + elapsed + " ms (" + appName + ")");
+      }
+    }
+
+    writer.flush();
+    exportComplete = true;
+  } catch (Exception e) {
+    if (outFile.exists()) {
+      try { outFile.delete(); } catch (Exception ignore) {}
+    }
+    throw new GeneralException("CSV export failed after " + rowCount + " row(s): " + e.getMessage(), e);
+  } finally {
+    if (writer != null) {
+      try { writer.close(); } catch (Exception ignore) {}
+    }
+    if (rs != null) {
+      try { rs.close(); } catch (Exception ignore) {}
+    }
+    if (stmt != null) {
+      try { stmt.close(); } catch (Exception ignore) {}
+    }
+    if (conn != null) {
+      try { conn.close(); } catch (Exception ignore) {}
+    }
+  }
+
+  if (!exportComplete) {
+    throw new GeneralException("CSV export did not complete successfully");
+  }
+
+  Process chmodProcess = Runtime.getRuntime().exec(new String[] { "/bin/chmod", "777", outPath });
+  int chmodExit = chmodProcess.waitFor();
+  if (chmodExit != 0) {
+    throw new GeneralException("chmod 777 failed for file: " + outPath + " (exit code " + chmodExit + ")");
+  }
+
+  long endMs = System.currentTimeMillis();
+  long durationMs = endMs - startMs;
+  long fileSizeBytes = outFile.length();
+
+  Map result = new HashMap();
+  result.put("success", Boolean.TRUE);
+  result.put("application", appName);
+  result.put("sql", customSql);
+  result.put("filePath", outPath);
+  result.put("rowCount", Integer.valueOf(rowCount));
+  result.put("fileSizeBytes", Long.valueOf(fileSizeBytes));
+  result.put("durationMs", Long.valueOf(durationMs));
+  result.put("fetchSize", Integer.valueOf(jdbcFetchSize));
+  result.put("message", "Exported " + rowCount + " row(s) ("
+      + fileSizeBytes + " bytes) to " + outPath + " in " + durationMs + " ms");
+
+  return result;
+  </Source>
+</Rule>
